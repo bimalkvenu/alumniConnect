@@ -9,11 +9,17 @@ const alumniSchema = new mongoose.Schema({
   email: {
     type: String,
     required: [true, 'Please add an email'],
-    unique: true
+    unique: true,
+    match: [
+      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+      'Please add a valid email'
+    ]
   },
   graduationYear: {
     type: Number,
-    required: [true, 'Please add graduation year']
+    required: true,
+    min: [1900, 'Year must be after 1900'],
+    max: [new Date().getFullYear(), 'Year cannot be in the future']
   },
   degree: String,
   currentJob: String
