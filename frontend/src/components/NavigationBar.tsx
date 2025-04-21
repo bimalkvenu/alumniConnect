@@ -5,8 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { JoinModal } from '@/components/modals/join-modal';
 import { LoginModal } from '@/components/modals/login-modal';
+import api from '@/api';
+import axios from "axios";
+
+const API = import.meta.env.VITE_API_BASE_URL;
+interface User {
+  id: string;
+  fullName: string;
+  email: string;
+  role: 'student' | 'mentor';
+  // Add more fields as needed from your backend's user object
+}
 
 const NavigationBar = () => {
+  const [user, setUser] = useState<User | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
@@ -41,6 +53,14 @@ const NavigationBar = () => {
   });
 
   useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser: User = JSON.parse(storedUser);
+      setUser(parsedUser);
+    }
+  }, []);  
+
+  useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
@@ -67,16 +87,24 @@ const NavigationBar = () => {
     }
   };
 
-  const handleFormSubmit = (formType: 'student' | 'mentor') => {
-    // Handle form submission
-    if (formType === 'student') {
-      console.log('Student form submitted:', studentFormData);
-    } else {
-      console.log('Mentor form submitted:', mentorFormData);
+  const handleFormSubmit = async (formType: 'student' | 'mentor') => {
+    try {
+      const payload = formType === 'student' ? {
+        ...studentFormData,
+        role: 'student'
+      } : {
+        ...mentorFormData,
+        role: 'mentor'
+      };
+  
+      const res = await api.post('/auth/register', payload);
+      console.log('Registration successful:', res.data);
+  
+      resetForms();
+      setIsJoinModalOpen(false);
+    } catch (error) {
+      console.error('Registration error:', error);
     }
-    // Reset and close
-    resetForms();
-    setIsJoinModalOpen(false);
   };
 
   const handleLoginInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,13 +112,35 @@ const NavigationBar = () => {
     setLoginFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login submitted:', loginFormData);
-    setIsLoginModalOpen(false);
-    setLoginFormData({ email: '', password: '' });
+    try {
+      const res = await axios.post(`${API}/auth/login`, loginFormData);
+      
+      // ✅ Save token to localStorage
+      localStorage.setItem("token", res.data.token);
+  
+      // 🔐 You can optionally store user data too
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+  
+      // ✅ Reset form and close modal
+      setLoginFormData({ email: "", password: "" });
+      setIsLoginModalOpen(false);
+  
+      // 🚀 Redirect or show success
+      alert("Login successful!");
+      // navigate("/dashboard"); // If using React Router
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        console.error("Login error:", err);
+        alert("Login failed: " + (err.response?.data?.message || "Unknown error"));
+      } else {
+        console.error("Unexpected error:", err);
+        alert("Login failed: Unexpected error");
+      }
+    }
   };
-
+    
   const handleGoogleAuth = () => {
     console.log('Google authentication initiated');
     // Implement Google auth
@@ -162,21 +212,39 @@ const NavigationBar = () => {
           </nav>
 
           {/* Action buttons */}
-          <div className="hidden md:flex items-center space-x-4">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsLoginModalOpen(true)}
-              className="button-transition button-hover focus-ring border-phthalo-medium/50 text-phthalo hover:text-phthalo-dark"
-            >
-              Login
-            </Button>
-            <Button 
-              onClick={() => setIsJoinModalOpen(true)}
-              className="button-transition button-hover focus-ring bg-phthalo hover:bg-phthalo-dark"
-            >
+          {user ? (
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-phthalo font-medium">Hi, {user.fullName.split(" ")[0]}</span>
+              <Button 
+                variant="outline" 
+                className="button-transition focus-ring text-red-600 border-red-300 hover:text-red-800"
+                onClick={() => {
+                  localStorage.removeItem("token");
+                  localStorage.removeItem("user");
+                  setUser(null);
+                  window.location.reload(); // or use navigate('/')
+                }}
+              >
+                Logout
+              </Button>
+            </div>
+        ) : (
+          <>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsLoginModalOpen(true)}
+                className="button-transition button-hover focus-ring border-phthalo-medium/50 text-phthalo hover:text-phthalo-dark"
+              >
+                Login
+              </Button>
+              <Button 
+                onClick={() => setIsJoinModalOpen(true)}
+                className="button-transition button-hover focus-ring bg-phthalo hover:bg-phthalo-dark"
+              >
               Join Now
-            </Button>
-          </div>
+              </Button>
+            </>
+          )}
 
           {/* Mobile menu button */}
           <button 
@@ -215,27 +283,46 @@ const NavigationBar = () => {
                 <Calendar className="h-4 w-4" />
                 Events
               </Link>
-              
               <div className="pt-2 flex flex-col space-y-3">
-                <Button 
-                  variant="outline"
-                  className="w-full justify-center button-transition focus-ring border-phthalo-medium/50 text-phthalo hover:text-phthalo-dark"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    setIsLoginModalOpen(true);
-                  }}
-                >
-                  Login
-                </Button>
-                <Button 
-                  className="w-full justify-center button-transition focus-ring bg-phthalo hover:bg-phthalo-dark"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    setIsJoinModalOpen(true);
-                  }}
-                >
-                  Join Now
-                </Button>
+                {user ? (
+                  <>
+                    <span className="text-sm text-phthalo font-medium pl-2">Hi, {user.fullName.split(" ")[0]}</span>
+                    <Button 
+                      variant="outline"
+                      className="w-full justify-center button-transition focus-ring text-red-600 border-red-300 hover:text-red-800"
+                      onClick={() => {
+                        localStorage.removeItem("token");
+                        localStorage.removeItem("user");
+                        setUser(null);
+                        window.location.reload();
+                      }}
+                    >
+                      Logout
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button 
+                      variant="outline"
+                      className="w-full justify-center button-transition focus-ring border-phthalo-medium/50 text-phthalo hover:text-phthalo-dark"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        setIsLoginModalOpen(true);
+                      }}
+                    >
+                      Login
+                    </Button>
+                    <Button 
+                      className="w-full justify-center button-transition focus-ring bg-phthalo hover:bg-phthalo-dark"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        setIsJoinModalOpen(true);
+                      }}
+                    >
+                      Join Now
+                    </Button>
+                  </>
+                  )}
               </div>
             </div>
           </div>

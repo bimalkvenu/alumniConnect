@@ -1,30 +1,37 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { GraduationCap, Calendar, MessageCircle, Users } from 'lucide-react';
 
-const mentors = [
-  {
-    name: "Jennifer Chen",
-    role: "Product Manager at Microsoft",
-    specialties: ["Career Guidance", "Tech Leadership", "Product Strategy"],
-    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=1000&auto=format&fit=crop&ixlib=rb-4.0.3"
-  },
-  {
-    name: "Michael Roberts",
-    role: "Senior Software Engineer at Amazon",
-    specialties: ["Software Development", "System Design", "Interview Prep"],
-    image: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=1000&auto=format&fit=crop&ixlib=rb-4.0.3"
-  },
-  {
-    name: "Sophia Williams",
-    role: "Marketing Director at Google",
-    specialties: ["Digital Marketing", "Brand Strategy", "Leadership"],
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1000&auto=format&fit=crop&ixlib=rb-4.0.3"
-  }
-];
+type Mentor = {
+  _id: string;
+  name: string;
+  role: string;
+  specialties: string[];
+  image: string;
+};
 
 const MentorshipSection = () => {
+  
+  const [mentors, setMentors] = useState<Mentor[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMentors = async () => {
+      try {
+        const response = await axios.get('/mentors'); // adjust the path if needed
+        setMentors(response.data);
+      } 
+      catch (error) {
+        console.error('Failed to fetch mentors:', error);
+      } 
+      finally {
+      setLoading(false);
+      }
+    };
+    fetchMentors();
+  }, []);
+
   return (
     <section id="mentorship" className="py-24 px-4 md:px-6 relative overflow-hidden">
       {/* Background decorative elements */}
@@ -73,45 +80,48 @@ const MentorshipSection = () => {
           <div className="relative animate-on-scroll">
             <div className="absolute -top-6 -left-6 w-32 h-32 bg-phthalo-light rounded-full opacity-70 -z-10"></div>
             <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-phthalo-light rounded-full opacity-70 -z-10"></div>
-            
             <div className="grid gap-6">
-              {mentors.map((mentor, index) => (
-                <div 
-                  key={index} 
-                  className="glass-card rounded-xl overflow-hidden shadow-soft transition-all duration-300 hover:shadow-medium flex flex-col md:flex-row animate-on-scroll"
-                  style={{ animationDelay: `${index * 0.15}s` }}
-                >
-                  <div className="md:w-1/3 h-48 md:h-auto overflow-hidden">
-                    <img 
-                      src={mentor.image} 
-                      alt={mentor.name} 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="p-6 md:w-2/3 flex flex-col justify-between">
-                    <div>
-                      <h3 className="text-xl font-semibold mb-1">{mentor.name}</h3>
-                      <p className="text-muted-foreground mb-3">{mentor.role}</p>
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {mentor.specialties.map((specialty, idx) => (
-                          <span 
-                            key={idx} 
-                            className="px-3 py-1 bg-phthalo-light text-phthalo-dark text-sm rounded-full"
-                          >
-                            {specialty}
-                          </span>
-                        ))}
-                      </div>
+              {loading ? (
+                <p>Loading mentors...</p>
+              ) : (
+                mentors.map((mentor, index) => (
+                  <div 
+                    key={mentor._id} 
+                    className="glass-card rounded-xl overflow-hidden shadow-soft transition-all duration-300 hover:shadow-medium flex flex-col md:flex-row animate-on-scroll"
+                    style={{ animationDelay: `${index * 0.15}s` }}
+                  >
+                    <div className="md:w-1/3 h-48 md:h-auto overflow-hidden">
+                      <img 
+                        src={mentor.image} 
+                        alt={mentor.name} 
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <Button 
-                      variant="outline" 
-                      className="mt-2 w-full md:w-auto justify-center md:justify-start button-transition button-hover focus-ring"
-                    >
-                      Request Mentorship
-                    </Button>
+                    <div className="p-6 md:w-2/3 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-xl font-semibold mb-1">{mentor.name}</h3>
+                        <p className="text-muted-foreground mb-3">{mentor.role}</p>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {mentor.specialties.map((specialty, idx) => (
+                            <span 
+                              key={idx} 
+                              className="px-3 py-1 bg-phthalo-light text-phthalo-dark text-sm rounded-full"
+                            > 
+                              {specialty}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        className="mt-2 w-full md:w-auto justify-center md:justify-start button-transition button-hover focus-ring"
+                      >
+                        Request Mentorship
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>

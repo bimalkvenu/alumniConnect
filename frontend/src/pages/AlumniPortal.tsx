@@ -1,5 +1,5 @@
-
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import NavigationBar from '@/components/NavigationBar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,25 @@ import AlumniConnections from '@/components/alumni/AlumniConnections';
 import AlumniMentorship from '@/components/alumni/AlumniMentorship';
 import { Link } from 'react-router-dom';
 
-const AlumniPortal = () => {
+const AlumniPortal = () => {\
+  
+  const [user, setUser] = useState(null);
   // Scroll to top on page load
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await axios.get('/user/me'); // replace with your actual endpoint
+        setUser(res.data);
+      } catch (err) {
+        console.error('Failed to fetch user:', err);
+      }
+    };
+  
+    fetchUser();
   }, []);
 
   return (
@@ -26,8 +41,10 @@ const AlumniPortal = () => {
           <div className="mb-8 p-6 glass-card rounded-xl">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome Back, Sarah</h1>
-                <p className="text-muted-foreground">Computer Science '22 | Last login: Today at 9:30 AM</p>
+                <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome Back, {user?.name || 'User'}</h1>
+                <p className="text-muted-foreground">
+                  {user?.department} '{user?.graduationYear} | Last login: {user?.lastLogin}
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <Button variant="outline" className="flex items-center gap-2 focus-ring">
