@@ -1,9 +1,14 @@
 import React from 'react';
+import { User } from '@/types/User';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { GraduationCap, Calendar, Users, MessageCircle, Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
+
+type Props = {
+  user: User;
+};
 
 const mentors = [
   {
@@ -40,7 +45,7 @@ const mentors = [
   }
 ];
 
-const AlumniMentorship = () => {
+const AlumniMentorship: React.FC<Props> = ({ user }) => {
   return (
     <div className="space-y-6">
       {/* Mentorship Progress Card */}

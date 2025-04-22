@@ -1,10 +1,15 @@
 import React from 'react';
+import { User } from '@/types/User';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { BarChart, Calendar, MessageSquare, Award, Video, Users } from 'lucide-react';
 
-const AlumniDashboard = () => {
+type Props = {
+  user: User;
+};
+
+const AlumniDashboard: React.FC<Props> = ({user}) => {
   return (
     <div className="space-y-8">
       {/* Quick Stats Row */}

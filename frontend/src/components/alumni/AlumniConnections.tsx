@@ -1,9 +1,13 @@
-
 import React from 'react';
+import { User } from '@/types/User';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Filter, UserPlus } from 'lucide-react';
+
+type Props = {
+  user: User;
+};
 
 const connections = [
   {
@@ -50,7 +54,7 @@ const connections = [
   }
 ];
 
-const AlumniConnections = () => {
+const AlumniConnections: React.FC<Props> = ({user}) => {
   return (
     <div className="space-y-6">
       {/* Search and Filter Bar */}
