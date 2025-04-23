@@ -14,32 +14,54 @@ const generateToken = (id) => {
 // @desc    Register new user
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, graduationYear, degree } = req.body;
+    const { name, registrationNumber, email, password, year, section, program, role } = req.body;
 
-    // Validation
-    if (!name || !email || !password || !graduationYear || !degree) {
+    // Trim all string inputs
+    const trimmedData = {
+      name: name?.trim(),
+      registrationNumber: registrationNumber?.trim(),
+      email: email?.trim(),
+      password: password, // Don't trim password
+      year: year?.trim(),
+      section: section?.trim(),
+      program: program?.trim(),
+      role: role?.trim()
+    };
+
+    // Validation - check for empty strings after trim
+    if (!trimmedData.name || !trimmedData.registrationNumber || !trimmedData.email || 
+        !trimmedData.password || !trimmedData.year || !trimmedData.section || !trimmedData.program) {
       return res.status(400).json({ 
         success: false,
-        error: 'Please include all required fields' 
+        error: 'All fields are required and cannot be empty' 
       });
     }
 
-    // Check if user exists
-    const userExists = await User.findOne({ email });
+    // Check for existing user (this is redundant with unique indexes but provides better error messages)
+    const userExists = await User.findOne({ 
+      $or: [
+        { email: trimmedData.email },
+        { registrationNumber: trimmedData.registrationNumber }
+      ]
+    });
+    
     if (userExists) {
       return res.status(400).json({
         success: false,
-        error: 'User already exists'
+        error: 'User with this email or registration number already exists'
       });
     }
 
-    // Create user
+    // Create user with trimmed data
     const user = await User.create({
-      name,
-      email,
-      password,
-      graduationYear,
-      degree
+      name: trimmedData.name,
+      registrationNumber: trimmedData.registrationNumber,
+      email: trimmedData.email,
+      password: trimmedData.password,
+      year: trimmedData.year,
+      section: trimmedData.section,
+      program: trimmedData.program,
+      role: trimmedData.role || 'student'
     });
 
     // Generate token
@@ -52,16 +74,39 @@ const registerUser = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        graduationYear: user.graduationYear,
-        degree: user.degree
+        registrationNumber: user.registrationNumber,
+        role: user.role
       }
     });
 
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({
+    
+    let errorMessage = 'Registration failed';
+    let statusCode = 500;
+    
+    // Handle duplicate key errors from MongoDB unique indexes
+    if (error.code === 11000) {
+      statusCode = 400;
+      if (error.keyPattern.email) {
+        errorMessage = 'Email already exists';
+      } else if (error.keyPattern.registrationNumber) {
+        errorMessage = 'Registration number already exists';
+      }
+    } 
+    // Handle validation errors
+    else if (error.name === 'ValidationError') {
+      statusCode = 400;
+      errorMessage = Object.values(error.errors).map(err => err.message).join(', ');
+    }
+    // Handle empty field errors from our manual validation
+    else if (error.message.includes('required')) {
+      statusCode = 400;
+    }
+
+    res.status(statusCode).json({
       success: false,
-      error: 'Server error during registration'
+      error: errorMessage
     });
   }
 };
@@ -71,28 +116,42 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check for user
-    const user = await User.findOne({ email });
-
-    // Verify password
-    if (user && (await bcrypt.compare(password, user.password))) {
-      res.json({
-        success: true,
-        token: generateToken(user._id),
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          graduationYear: user.graduationYear,
-          degree: user.degree
-        }
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide email and password'
       });
-    } else {
-      res.status(401).json({
+    }
+
+    const user = await User.findOne({ email }).select('+password');
+
+    if (!user) {
+      return res.status(401).json({
         success: false,
         error: 'Invalid credentials'
       });
     }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      token: generateToken(user._id),
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        graduationYear: user.graduationYear,
+        degree: user.degree
+      }
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({
@@ -101,6 +160,7 @@ const loginUser = async (req, res) => {
     });
   }
 };
+
 
 // @desc    Get current user data
 const getMe = async (req, res) => {
@@ -194,7 +254,7 @@ const forgotPassword = async (req, res) => {
     // Create reset URL
     const resetUrl = `${req.protocol}://${req.get('host')}/api/auth/reset-password/${resetToken}`;
 
-    // Send email
+    // Send email using the sendEmail function
     const message = `You are receiving this email because you requested a password reset. Please make a PUT request to: \n\n ${resetUrl}`;
 
     await sendEmail({

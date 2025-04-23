@@ -3,40 +3,16 @@ const bcrypt = require('bcryptjs');
 
 // Define the schema
 const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Please add a name']
-  },
-  email: {
-    type: String,
-    required: [true, 'Please add an email'],
-    unique: true,
-    match: [
-      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-      'Please add a valid email'
-    ]
-  },
-  password: {
-    type: String,
-    required: [true, 'Please add a password'],
-    minlength: 6,
-    select: false
-  },
-  graduationYear: {
-    type: Number,
-    required: [true, 'Please add graduation year']
-  },
-  degree: {
-    type: String,
-    required: [true, 'Please add your degree']
-  },
-  currentJob: String,
-  skills: [String],
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+  name: { type: String, required: true },
+  registrationNumber: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true, select: false },
+  year: { type: String, required: true },
+  section: { type: String, required: true},
+  program: { type: String, required: true }, // e.g., "Computer Science"
+  role: { type: String, default: 'student' },
+  // ... other existing fields
+}, { timestamps: true });
 
 // Encrypt password before saving
 userSchema.pre('save', async function(next) {

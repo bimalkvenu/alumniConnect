@@ -20,6 +20,7 @@ router.put('/reset-password/:resetToken', resetPassword);
 // Protected routes (require valid JWT)
 router.get('/me', protect, getMe);
 router.put('/me', protect, updateProfile);
-router.delete('/me', protect, deleteAccount);
+
+router.delete('/delete', protect, deleteAccount);
 
 module.exports = router;
