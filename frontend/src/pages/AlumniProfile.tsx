@@ -21,7 +21,7 @@ import {
   Linkedin,
   Users as UsersIcon
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface AlumniData {
@@ -50,15 +50,29 @@ interface AlumniData {
 }
 
 const AlumniProfile = () => {
+  const navigate = useNavigate();
   const [alumniData, setAlumniData] = useState<AlumniData | null>(null);
   const [loading, setLoading] = useState(true);
+  const calculateCompletion = (data: AlumniData): number => {
+    let filled = 0;
+    const total = 5;
+    if (data.email && data.phone && data.location) filled++;
+    if (data.education?.length) filled++;
+    if (data.experience?.length) filled++;
+    if (data.skills?.length) filled++;
+    if (data.about) filled++;
+  
+    return Math.round((filled / total) * 100);
+  };
+  
+  const completion = alumniData ? calculateCompletion(alumniData) : 0;  
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
   useEffect(() => {
-    axios.get("/api/alumni/profile")
+    axios.get("/api/alumni/me")
       .then(res => setAlumniData(res.data))
       .catch(err => console.error("Error fetching alumni data", err))
       .finally(() => setLoading(false));
@@ -130,7 +144,7 @@ const AlumniProfile = () => {
                   Dashboard
                 </Link>
               </Button>
-              <Button className="flex items-center gap-2">
+              <Button className="flex items-center gap-2" onClick={() => navigate('/edit-profile')}>
                 <Edit className="h-4 w-4" />
                 Edit Profile
               </Button>
@@ -365,8 +379,7 @@ const AlumniProfile = () => {
                 </div>
                 <Progress value={85} className="h-2 mb-2" />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>85% Complete</span>
-                  <span>2 items remaining</span>
+                  <span>{completion}% Complete</span>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center gap-2">

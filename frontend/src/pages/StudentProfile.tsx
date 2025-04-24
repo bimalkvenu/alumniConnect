@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import NavigationBar from '@/components/NavigationBar';
 import Footer from '@/components/Footer';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -27,6 +28,8 @@ import { Link } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const StudentProfile = () => {
+  const { user } = useAuth();
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -62,11 +65,11 @@ const StudentProfile = () => {
                 </Button>
               </div>
               <div className="sm:mb-4">
-                <h1 className="text-2xl md:text-3xl font-bold">Alex Rivera</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">{user?.name}</h1>
                 <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <GraduationCap className="h-4 w-4" />
-                    Computer Science, Year 3
+                    {user?.program}, Year {user?.year}
                   </span>
                   <span className="hidden sm:inline">•</span>
                   <span className="flex items-center gap-1">

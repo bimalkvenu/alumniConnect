@@ -1,5 +1,5 @@
 import React from 'react';
-import { User } from '@/types/User';
+import { User } from '@/types/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { GraduationCap, Calendar, Users, MessageCircle, Search, Filter } from 'lucide-react';

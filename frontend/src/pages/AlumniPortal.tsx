@@ -1,22 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '@/api';
 import { useNavigate } from 'react-router-dom';
 import NavigationBar from '@/components/NavigationBar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GraduationCap, Users, MessageCircle, Calendar, Bell, Briefcase, BookOpen, User } from 'lucide-react';
+import { GraduationCap, Users, MessageCircle, Bell, Briefcase, User } from 'lucide-react';
 import AlumniDashboard from '@/components/alumni/AlumniDashboard';
 import AlumniConnections from '@/components/alumni/AlumniConnections';
 import AlumniMentorship from '@/components/alumni/AlumniMentorship';
 import { Link } from 'react-router-dom';
+import LoadingSpinner from '@/components/LoadingSpinner';
+
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  graduationYear: number;
+  degree: string;
+  department?: string;
+  lastLogin?: string;
+  currentJob?: string;
+  company?: string;
+  role?: string;
+}
+
+interface Notification {
+  _id: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
+interface Message {
+  _id: string;
+  content: string;
+  sender: string;
+  createdAt: string;
+  read: boolean;
+}
 
 const AlumniPortal = () => {
-  
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState([]);
-  const [messages, setMessages] = useState([]);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   // Scroll to top on page load
@@ -24,49 +53,81 @@ const AlumniPortal = () => {
     window.scrollTo(0, 0);
   }, []);
 
+  // Check authentication
   useEffect(() => {
     if (!localStorage.getItem('token')) {
       navigate('/login');
     }
   }, [navigate]);
 
+  // Fetch all data in parallel
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchAllData = async () => {
       try {
-        const res = await axios.get('/user/me'); // replace with your actual endpoint
-        setUser(res.data);
+        const [userRes, notificationsRes, messagesRes] = await Promise.all([
+          api.get('/auth/me'),
+          api.get('/notifications'),
+          api.get('/messages')
+        ]);
+
+        setUser(userRes.data);
+        setNotifications(notificationsRes.data);
+        setMessages(messagesRes.data);
       } catch (err) {
-        console.error('Failed to fetch user:', err);
+        console.error('Error fetching data:', err);
+        
+        if (err.response?.status === 401) {
+          localStorage.removeItem('token');
+          navigate('/login');
+        } else {
+          setError(err.response?.data?.message || 'Failed to load portal data');
+        }
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     };
-  
-    fetchUser();
+
+    fetchAllData();
   }, []);
 
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const res = await axios.get('/notifications');
-        setNotifications(res.data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-  
-    const fetchMessages = async () => {
-      try {
-        const res = await axios.get('/messages');
-        setMessages(res.data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-  
-    fetchNotifications();
-    fetchMessages();
-  }, []);
+  // Calculate unread counts
+  const unreadNotifications = notifications.filter(n => !n.read).length;
+  const unreadMessages = messages.filter(m => !m.read).length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center p-6 max-w-md">
+          <h2 className="text-xl font-bold mb-2">Error Loading Portal</h2>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-bold">No user data found</h2>
+          <Button onClick={() => navigate('/login')} className="mt-4">
+            Return to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -74,30 +135,33 @@ const AlumniPortal = () => {
       <main className="flex-grow pt-24 pb-12">
         <div className="container mx-auto px-4 md:px-6">
           {/* Welcome Header */}
-          {!loading && (
           <div className="mb-8 p-6 glass-card rounded-xl">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome Back, {user?.name || 'User'}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold mb-2">
+                  Welcome Back, {user.name}
+                </h1>
                 <p className="text-muted-foreground">
-                  {user?.department} '{user?.graduationYear}' | Last login: {user?.lastLogin}
+                  {user.department} '{user.graduationYear}' | Last login: {new Date(user.lastLogin || '').toLocaleString()}
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <Button variant="outline" className="flex items-center gap-2 focus-ring">
                   <Bell className="h-4 w-4" />
                   <span className="hidden sm:inline">Notifications</span>
-                  <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary rounded-full">
-                    {notifications.length}
-                  </span>
+                  {unreadNotifications > 0 && (
+                    <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary rounded-full">
+                      {unreadNotifications}
+                    </span>
+                  )}
                 </Button>
                 <Button className="relative flex items-center gap-2 button-transition button-hover focus-ring">
                   <MessageCircle className="h-4 w-4" />
                   <span className="hidden sm:inline">Messages</span>
-                  {messages.length > 0 && (
+                  {unreadMessages > 0 && (
                     <span className="absolute top-0 right-0 -mt-1 -mr-1 w-5 h-5 text-xs font-bold text-white bg-primary rounded-full flex items-center justify-center">
-                    {messages.length}
-                  </span>
+                      {unreadMessages}
+                    </span>
                   )}
                 </Button>
                 <Button 
@@ -113,12 +177,8 @@ const AlumniPortal = () => {
               </div>
             </div>
           </div>
-          )}
           
           {/* Main Tabs Navigation */}
-          {loading ? (
-            <div className="text-center mt-10">Loading...</div>
-          ) : (
           <Tabs defaultValue="dashboard" className="w-full">
             <TabsList className="w-full mb-8 grid grid-cols-2 md:grid-cols-3 h-auto bg-muted/50 p-1 rounded-lg">
               <TabsTrigger value="dashboard" className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
@@ -134,20 +194,19 @@ const AlumniPortal = () => {
                 <span>Mentorship</span>
               </TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="dashboard" className="mt-0">
               <AlumniDashboard user={user} />
             </TabsContent>
 
             <TabsContent value="connections" className="mt-0">
-              <AlumniConnections user={user}/>
+              <AlumniConnections user={user} />
             </TabsContent>
               
             <TabsContent value="mentorship" className="mt-0">
               <AlumniMentorship user={user} />
             </TabsContent>
           </Tabs>
-            )}
         </div>
       </main>
       

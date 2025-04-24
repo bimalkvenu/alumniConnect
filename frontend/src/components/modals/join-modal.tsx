@@ -2,6 +2,7 @@ import { Modal } from '@/components/ui/modal';
 import { GraduationCap, Briefcase, User, BookOpen, Hash, Mail, Lock, Calendar, BriefcaseBusiness } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ReactNode } from 'react';
+import { Loader2 } from 'lucide-react';
 
 interface JoinModalProps {
   isOpen: boolean;
@@ -30,6 +31,8 @@ interface JoinModalProps {
   onFormInputChange: (formType: 'student' | 'mentor', e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   onFormSubmit: (formType: 'student' | 'mentor') => void;
   onGoogleAuth: () => void;
+  errors: Record<string, string>;
+  isSubmitting: boolean;
 }
 
 export const JoinModal = ({ 
@@ -42,7 +45,9 @@ export const JoinModal = ({
   mentorFormData,
   onFormInputChange,
   onFormSubmit,
-  onGoogleAuth
+  onGoogleAuth,
+  errors,
+  isSubmitting
 }: JoinModalProps) => {
   const renderRoleSelection = () => (
     <Modal
@@ -51,6 +56,7 @@ export const JoinModal = ({
       title="Join Our Community"
       showFooter={false}
       size="md"
+      onSubmit={() => {}}
     >
       <div className="space-y-6">
         <p className="text-sm text-gray-600">
@@ -112,8 +118,7 @@ export const JoinModal = ({
       onClose={onClose}
       title="Student Registration"
       onSubmit={() => onFormSubmit('student')}
-      submitText="Create Account"
-      size="lg"
+      submitText={isSubmitting ? "Creating Account..." : "Create Account"}
     >
       <form className="space-y-4">
         <FormInput
@@ -123,6 +128,7 @@ export const JoinModal = ({
           placeholder="Full Name"
           value={studentFormData.fullName}
           onChange={(e) => onFormInputChange('student', e)}
+          error={errors.fullName}
           required
         />
 
@@ -133,6 +139,7 @@ export const JoinModal = ({
           placeholder="Registration Number"
           value={studentFormData.registrationNumber}
           onChange={(e) => onFormInputChange('student', e)}
+          error={errors.registrationNumber}
           required
         />
 
@@ -143,6 +150,7 @@ export const JoinModal = ({
           placeholder="Email Address"
           value={studentFormData.email}
           onChange={(e) => onFormInputChange('student', e)}
+          error={errors.email}
           required
         />
 
@@ -150,28 +158,23 @@ export const JoinModal = ({
           icon={<Lock className="h-5 w-5 text-gray-500" />}
           type="password"
           name="password"
-          placeholder="Create Password"
+          placeholder="Create Password (min 6 characters)"
           value={studentFormData.password}
           onChange={(e) => onFormInputChange('student', e)}
+          error={errors.password}
           required
         />
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <BookOpen className="h-5 w-5 text-gray-500" />
-            <select
-              name="year"
-              value={studentFormData.year}
-              onChange={(e) => onFormInputChange('student', e)}
-              className="flex-1 bg-transparent focus:outline-none"
-              required
-            >
-              <option value="">Select Year</option>
-              {[1, 2, 3, 4].map(year => (
-                <option key={year} value={year}>Year {year}</option>
-              ))}
-            </select>
-          </div>
+          <FormInput
+            icon={<BookOpen className="h-5 w-5 text-gray-500" />}
+            type="text"
+            name="year"
+            placeholder="Year (e.g. 2023)"
+            value={studentFormData.year}
+            onChange={(e) => onFormInputChange('student', e)}
+            required
+          />
 
           <FormInput
             icon={<Hash className="h-5 w-5 text-gray-500" />}
@@ -191,8 +194,15 @@ export const JoinModal = ({
           placeholder="Program of Study"
           value={studentFormData.program}
           onChange={(e) => onFormInputChange('student', e)}
+          error={errors.program}
           required
         />
+
+        {errors.form && (
+          <div className="text-red-500 text-sm text-center">
+            {errors.form}
+          </div>
+        )}
 
         <SocialAuthSection onGoogleAuth={onGoogleAuth} />
       </form>
@@ -205,8 +215,7 @@ export const JoinModal = ({
       onClose={onClose}
       title="Mentor Registration"
       onSubmit={() => onFormSubmit('mentor')}
-      submitText="Create Account"
-      size="lg"
+      submitText={isSubmitting ? "Creating Account..." : "Create Account"}
     >
       <form className="space-y-4">
         <FormInput
@@ -296,26 +305,39 @@ export const JoinModal = ({
   return renderRoleSelection();
 };
 
-const FormInput = ({ icon, type, name, placeholder, value, onChange, required }: {
+const FormInput = ({ 
+  icon, 
+  type, 
+  name, 
+  placeholder, 
+  value, 
+  onChange, 
+  error,
+  required 
+}: {
   icon: ReactNode;
   type: string;
   name: string;
   placeholder: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  error?: string;
   required?: boolean;
 }) => (
-  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-    {icon}
-    <input
-      type={type}
-      name={name}
-      placeholder={placeholder}
-      value={value}
-      onChange={onChange}
-      className="flex-1 bg-transparent focus:outline-none"
-      required={required}
-    />
+  <div>
+    <div className={`flex items-center gap-3 p-3 bg-gray-50 rounded-lg ${error ? 'border border-red-300' : ''}`}>
+      {icon}
+      <input
+        type={type}
+        name={name}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        className="flex-1 bg-transparent focus:outline-none"
+        required={required}
+      />
+    </div>
+    {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
   </div>
 );
 

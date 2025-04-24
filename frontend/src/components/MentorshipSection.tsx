@@ -1,36 +1,70 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
+import api from '@/api'; // Using your centralized API service
 import { Button } from '@/components/ui/button';
 import { GraduationCap, Calendar, MessageCircle, Users } from 'lucide-react';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import ErrorDisplay from './ErrorDisplay';
 
-type Mentor = {
+interface Mentor {
   _id: string;
   name: string;
   role: string;
   specialties: string[];
   image: string;
-};
+  bio?: string;
+  availability?: string[];
+}
 
 const MentorshipSection = () => {
-  
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMentors = async () => {
       try {
-        const response = await axios.get('/mentors'); // adjust the path if needed
+        const response = await api.get('/alumni');
         setMentors(response.data);
-      } 
-      catch (error) {
-        console.error('Failed to fetch mentors:', error);
-      } 
-      finally {
-      setLoading(false);
+      } catch (err) {
+        console.error('Failed to fetch mentors:', err);
+        setError(err.response?.data?.message || 'Failed to load mentors');
+      } finally {
+        setLoading(false);
       }
     };
+
     fetchMentors();
   }, []);
+
+  const handleRequestMentorship = async (mentorId: string) => {
+    try {
+      await api.post('/mentorship/request', { mentorId });
+      // Show success message or update UI
+    } catch (err) {
+      console.error('Failed to request mentorship:', err);
+      setError('Failed to send mentorship request');
+    }
+  };
+
+  if (loading) {
+    return (
+      <section id="mentorship" className="py-24 px-4 md:px-6">
+        <div className="container mx-auto flex justify-center">
+          <LoadingSpinner />
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section id="mentorship" className="py-24 px-4 md:px-6">
+        <div className="container mx-auto">
+          <ErrorDisplay message={error} onRetry={() => window.location.reload()} />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="mentorship" className="py-24 px-4 md:px-6 relative overflow-hidden">
@@ -81,8 +115,10 @@ const MentorshipSection = () => {
             <div className="absolute -top-6 -left-6 w-32 h-32 bg-phthalo-light rounded-full opacity-70 -z-10"></div>
             <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-phthalo-light rounded-full opacity-70 -z-10"></div>
             <div className="grid gap-6">
-              {loading ? (
-                <p>Loading mentors...</p>
+              {mentors.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No mentors available at this time</p>
+                </div>
               ) : (
                 mentors.map((mentor, index) => (
                   <div 
@@ -92,15 +128,19 @@ const MentorshipSection = () => {
                   >
                     <div className="md:w-1/3 h-48 md:h-auto overflow-hidden">
                       <img 
-                        src={mentor.image} 
+                        src={mentor.image || '/default-mentor.jpg'} 
                         alt={mentor.name} 
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/default-mentor.jpg';
+                        }}
                       />
                     </div>
                     <div className="p-6 md:w-2/3 flex flex-col justify-between">
                       <div>
                         <h3 className="text-xl font-semibold mb-1">{mentor.name}</h3>
                         <p className="text-muted-foreground mb-3">{mentor.role}</p>
+                        {mentor.bio && <p className="text-sm mb-4 line-clamp-2">{mentor.bio}</p>}
                         <div className="flex flex-wrap gap-2 mb-4">
                           {mentor.specialties.map((specialty, idx) => (
                             <span 
@@ -115,6 +155,7 @@ const MentorshipSection = () => {
                       <Button 
                         variant="outline" 
                         className="mt-2 w-full md:w-auto justify-center md:justify-start button-transition button-hover focus-ring"
+                        onClick={() => handleRequestMentorship(mentor._id)}
                       >
                         Request Mentorship
                       </Button>

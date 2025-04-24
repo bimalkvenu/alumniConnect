@@ -4,6 +4,7 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GraduationCap, Users, MessageCircle, Calendar, Bell, Briefcase, BookOpen, User, Search } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import ConnectedMentors from '@/components/student/ConnectedMentors';
 import MentorSearch from '@/components/student/MentorSearch';
 import MentorChat from '@/components/student/MentorChat';
@@ -12,6 +13,7 @@ import { Link } from 'react-router-dom';
 
 
 const StudentPortal = () => {
+  const { user } = useAuth();
   // Scroll to top on page load
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -27,8 +29,10 @@ const StudentPortal = () => {
           <div className="mb-8 p-6 glass-card rounded-xl">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome Back, Alex</h1>
-                <p className="text-muted-foreground">Computer Science | Year 2</p>
+                <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome Back, {user?.name.split(' ')[0]}</h1>
+                <p className="text-muted-foreground">
+                  {user?.program} | Year {user?.year}
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <Button variant="outline" className="flex items-center gap-2 focus-ring">

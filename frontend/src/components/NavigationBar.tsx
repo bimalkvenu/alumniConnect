@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { MenuIcon, X, GraduationCap, Home, MessageCircle, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,18 +7,22 @@ import { Link } from 'react-router-dom';
 import { JoinModal } from '@/components/modals/join-modal';
 import { LoginModal } from '@/components/modals/login-modal';
 import api from '@/api';
-import axios from "axios";
+import { Loader2 } from 'lucide-react';
+import StudentPortal from '@/pages/StudentPortal';
 
-const API = import.meta.env.VITE_API_BASE_URL;
 interface User {
   id: string;
   fullName: string;
   email: string;
   role: 'student' | 'mentor';
-  // Add more fields as needed from your backend's user object
+  registrationNumber?: string;
+  year?: string;
+  section?: string;
+  program?: string;
 }
 
 const NavigationBar = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -25,6 +30,8 @@ const NavigationBar = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [showStudentForm, setShowStudentForm] = useState(false);
   const [showMentorForm, setShowMentorForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Form states
   const [studentFormData, setStudentFormData] = useState({
@@ -69,6 +76,7 @@ const NavigationBar = () => {
   }, []);
 
   const handleRoleSelect = (role: 'student' | 'mentor') => {
+    setErrors({});
     if (role === 'student') {
       setShowStudentForm(true);
       setShowMentorForm(false);
@@ -78,32 +86,77 @@ const NavigationBar = () => {
     }
   };
 
-  const handleFormInputChange = (formType: 'student' | 'mentor', e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    if (formType === 'student') {
-      setStudentFormData(prev => ({ ...prev, [name]: value }));
-    } else {
-      setMentorFormData(prev => ({ ...prev, [name]: value }));
+  const validateStudentForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!studentFormData.fullName.trim()) newErrors.fullName = 'Full name is required';
+    if (!studentFormData.registrationNumber.trim()) newErrors.registrationNumber = 'Registration number is required';
+    if (!studentFormData.email.trim()) newErrors.email = 'Email is required';
+    if (!/^\S+@\S+\.\S+$/.test(studentFormData.email)) newErrors.email = 'Invalid email format';
+    if (!studentFormData.password || studentFormData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
     }
+    if (!studentFormData.year) newErrors.year = 'Year is required';
+    if (!studentFormData.section) newErrors.section = 'Section is required';
+    if (!studentFormData.program) newErrors.program = 'Program is required';
+    return newErrors;
   };
 
-  const handleFormSubmit = async (formType: 'student' | 'mentor') => {
+  const handleStudentInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setStudentFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleStudentSubmit = async () => {
+    const formErrors = validateStudentForm();
+    if (Object.keys(formErrors).length > 0) {
+      setErrors(formErrors);
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const payload = formType === 'student' ? {
-        ...studentFormData,
+      const response = await api.post('/auth/register', {
+        name: studentFormData.fullName,
+        registrationNumber: studentFormData.registrationNumber,
+        email: studentFormData.email,
+        password: studentFormData.password,
+        year: String(studentFormData.year),
+        section: studentFormData.section,
+        program: studentFormData.program,
         role: 'student'
-      } : {
-        ...mentorFormData,
-        role: 'mentor'
-      };
-  
-      const res = await api.post('/auth/register', payload);
-      console.log('Registration successful:', res.data);
-  
-      resetForms();
-      setIsJoinModalOpen(false);
+      });
+
+      // Modify the handleStudentSubmit success handler
+      if (response.data.success) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        setUser(response.data.user);
+        setIsJoinModalOpen(false);
+        navigate('/student-portal'); // Redirect to student portal
+      }
+    
     } catch (error) {
       console.error('Registration error:', error);
+      let errorMessage = 'Registration failed. Please try again.';
+      
+      if (error.response) {
+        errorMessage = error.response.data.error || errorMessage;
+        
+        if (error.response.status === 400 && 
+            (error.response.data.error.includes('email') || 
+             error.response.data.error.includes('registration'))) {
+          setErrors({
+            ...errors,
+            email: error.response.data.error.includes('email') ? error.response.data.error : '',
+            registrationNumber: error.response.data.error.includes('registration') ? error.response.data.error : ''
+          });
+          return;
+        }
+      }
+      
+      setErrors({ form: errorMessage });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -115,35 +168,53 @@ const NavigationBar = () => {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axios.post(`${API}/auth/login`, loginFormData);
+      const response = await api.post('/auth/login', loginFormData);
       
-      // ✅ Save token to localStorage
-      localStorage.setItem("token", res.data.token);
-  
-      // 🔐 You can optionally store user data too
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-  
-      // ✅ Reset form and close modal
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+      setUser(response.data.user);
       setLoginFormData({ email: "", password: "" });
       setIsLoginModalOpen(false);
-  
-      // 🚀 Redirect or show success
-      alert("Login successful!");
-      // navigate("/dashboard"); // If using React Router
-    } catch (err) {
-      if (axios.isAxiosError(err)) {
-        console.error("Login error:", err);
-        alert("Login failed: " + (err.response?.data?.message || "Unknown error"));
-      } else {
-        console.error("Unexpected error:", err);
-        alert("Login failed: Unexpected error");
-      }
+    } catch (error) {
+      console.error("Login error:", error);
+      setErrors({
+        form: error.response?.data?.error || "Login failed. Please try again."
+      });
     }
   };
-    
+  
+  const handleFormInputChange = (formType: 'student' | 'mentor', e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    if (formType === 'student') {
+      setStudentFormData(prev => ({ ...prev, [name]: value }));
+      // Clear error for this field if it exists
+      if (errors[name]) {
+        setErrors(prev => ({ ...prev, [name]: '' }));
+      }
+    } else {
+      setMentorFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+  
+  const handleFormSubmit = (formType: 'student' | 'mentor') => {
+    if (formType === 'student') {
+      handleStudentSubmit();
+    } else {
+      // Handle mentor submission if needed
+      console.log('Mentor form submission');
+    }
+  };
+
   const handleGoogleAuth = () => {
     console.log('Google authentication initiated');
     // Implement Google auth
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    navigate('/'); // Redirect to home
   };
 
   const resetForms = () => {
@@ -165,6 +236,7 @@ const NavigationBar = () => {
       currentPosition: '',
       company: ''
     });
+    setErrors({});
     setShowStudentForm(false);
     setShowMentorForm(false);
   };
@@ -341,6 +413,8 @@ const NavigationBar = () => {
         onFormInputChange={handleFormInputChange}
         onFormSubmit={handleFormSubmit}
         onGoogleAuth={handleGoogleAuth}
+        errors={errors}
+        isSubmitting={isSubmitting}
       />
 
       <LoginModal
