@@ -2,12 +2,23 @@ import React from 'react';
 
 interface ErrorDisplayProps {
   message: string;
+  onRetry?: () => void;
+  className?: string;
 }
 
-const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ message }) => {
+const ErrorDisplay = ({ 
+  message, 
+  onRetry,
+  className 
+}: ErrorDisplayProps) => {
   return (
-    <div className="bg-red-100 text-red-700 p-4 rounded-lg shadow-md">
-      <strong>Error:</strong> {message}
+    <div className={`error-container ${className}`}>
+      <div className="error-message">{message}</div>
+      {onRetry && (
+        <button onClick={onRetry} className="retry-button">
+          Try Again
+        </button>
+      )}
     </div>
   );
 };
