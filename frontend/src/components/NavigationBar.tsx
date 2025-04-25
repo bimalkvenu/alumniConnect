@@ -286,7 +286,7 @@ const NavigationBar = () => {
           {/* Action buttons */}
           {user ? (
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-phthalo font-medium">Hi, {user.fullName.split(" ")[0]}</span>
+              <span className="text-sm text-phthalo font-medium">Hi, {user?.fullName?.split(" ")[0] || 'User'}</span>
               <Button 
                 variant="outline" 
                 className="button-transition focus-ring text-red-600 border-red-300 hover:text-red-800"
@@ -358,7 +358,7 @@ const NavigationBar = () => {
               <div className="pt-2 flex flex-col space-y-3">
                 {user ? (
                   <>
-                    <span className="text-sm text-phthalo font-medium pl-2">Hi, {user.fullName.split(" ")[0]}</span>
+                    <span className="text-sm text-phthalo font-medium pl-2">Hi, {user?.fullName?.split(" ")[0] || 'User'}</span>
                     <Button 
                       variant="outline"
                       className="w-full justify-center button-transition focus-ring text-red-600 border-red-300 hover:text-red-800"
