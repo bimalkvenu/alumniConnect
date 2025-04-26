@@ -25,6 +25,9 @@ const StudentProfile = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState(user?.profilePhoto || '');
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -132,6 +135,47 @@ const getErrorMessage = (error: unknown): string => {
       }
     }));
   };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadProfilePhoto = async () => {
+    if (!selectedFile) return;
+    
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('profilePhoto', selectedFile);
+
+      const response = await api.put('/auth/upload-profile-photo', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (response.data?.success) {
+        setUser(response.data.user);
+        toast.success('Profile photo updated successfully!');
+      }
+    } catch (error) {
+      toast.error('Failed to upload profile photo');
+      console.error('Upload error:', error);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
 
   useEffect(() => {
     if (user && !isEditMode) {
@@ -494,41 +538,48 @@ const getErrorMessage = (error: unknown): string => {
           </div>
         
           <div className="absolute left-8 bottom-0 transform translate-y-1/2 flex flex-col sm:flex-row items-start sm:items-end gap-6">
-            <div className="relative">
-              <img 
-                src="https://images.unsplash.com/photo-1531427186611-ecfd6d936c79?q=80&w=1000&auto=format&fit=crop&ixlib=rb-4.0.3" 
-                alt={user?.name} 
-                className="w-24 h-24 rounded-full border-4 border-white object-cover"
-              />
-              <Button 
-                size="icon" 
-                variant="outline" 
-                className="absolute bottom-0 right-0 rounded-full bg-white h-8 w-8"
-                onClick={() => setIsEditMode(true)}
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-full border-4 border-white bg-gray-100 overflow-hidden">
+                {previewUrl ? (
+                  <img 
+                    src={previewUrl} 
+                    alt={user?.name} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
+                    <UsersIcon className="h-10 w-10" />
+                  </div>
+               )}
+              </div>            
+              <label 
+                htmlFor="profile-photo-upload"
+                className="absolute bottom-0 right-0 rounded-full bg-white p-2 shadow-md cursor-pointer hover:bg-gray-100 transition-colors"
               >
                 <Edit className="h-4 w-4" />
-              </Button>
+                <input
+                  id="profile-photo-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </label>    
+              {selectedFile && (
+                <div className="absolute -bottom-10 left-0 right-0 flex justify-center">
+                  <Button
+                    size="sm"
+                    onClick={uploadProfilePhoto}
+                    disabled={uploadingPhoto}
+                    className="text-xs"
+                  >
+                    {uploadingPhoto ? 'Uploading...' : 'Save Photo'}
+                  </Button>
+                </div>
+              )}
             </div>
-            <div className="sm:mb-4">
-              <h1 className="text-2xl md:text-3xl font-bold">{user?.name}</h1>
-              <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <GraduationCap className="h-4 w-4" />
-                  {user?.program}, Year {user?.year}
-                </span>
-                {user?.gpa && (
-                  <>
-                    <span className="hidden sm:inline">•</span>
-                    <span className="flex items-center gap-1">
-                      <BookOpen className="h-4 w-4" />
-                      GPA: {user.gpa}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        
+            {/* ... rest of profile header */}
+          </div>      
           <div className="flex justify-end gap-3 mt-4">
             <Button 
               variant="outline" 

@@ -22,6 +22,7 @@ export interface User {
   role?: string;
   lastLogin?: string;
   completionPercentage?: number;
+  profilePhoto?: string;
 }
 
 export interface SocialLinks {
