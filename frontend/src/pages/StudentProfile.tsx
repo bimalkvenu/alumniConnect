@@ -9,18 +9,23 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { BookOpen, GraduationCap, Award, Edit, Calendar, MapPin, Mail, Phone, Globe, LinkedinIcon, Users as UsersIcon, Clock, Bookmark } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 
 const StudentProfile = () => {
   const { user, setUser } = useAuth();
+  const navigate = useNavigate();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -30,7 +35,7 @@ const StudentProfile = () => {
     year: user?.year || '',
     section: user?.section || '',
     bio: user?.bio || '',
-    interests: user?.interests || [],
+    interests: user?.interests ?? [],
     profileComplete: user?.profileComplete || false,
     gpa: user?.gpa || '',
     achievements: user?.achievements || [],
@@ -38,33 +43,73 @@ const StudentProfile = () => {
     activities: user?.activities || [],
     mentors: user?.mentors || [],
     events: user?.events || [],
-    socialLinks: user?.socialLinks || {
-      linkedin: '',
-      website: ''
-    }
-  });
+    socialLinks: user?.socialLinks || { linkedin: '', website: '' 
+  }});
 
+  // Error message helper function
+const getErrorMessage = (error: unknown): string => {
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null) {
+    const apiError = error as {
+      response?: {
+        data?: {
+          error?: string;
+          message?: string;
+        };
+      };
+      message?: string;
+    };
+    return apiError.response?.data?.error || 
+           apiError.response?.data?.message || 
+           apiError.message || 
+           'An unknown error occurred';
+  }
+  return 'An unknown error occurred';
+}
+
+  //Calculate Completion Percentage
   const calculateCompletion = () => {
     const requiredFields = ['name', 'program', 'year', 'email'];
-    const completedFields = requiredFields.filter(field => formData[field as keyof typeof formData]);
+    const completedFields = requiredFields.filter(field => {
+      const value = formData[field as keyof typeof formData];
+      return value && value.toString().trim() !== '';
+    });
     return (completedFields.length / requiredFields.length) * 100;
   };
 
+
+  // Handle Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
     try {
-      const updatedData = { 
+      const completionPercentage = calculateCompletion();
+      const updatedData = {
         ...formData,
         profileComplete: calculateCompletion() === 100
       };
-      const response = await api.put(`/users/${user?.id}`, updatedData);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      setUser(response.data.user);
+  
+      const response = await api.put('/auth/me', updatedData);
+      
+      if (!response.data?.success || !response.data.data) {
+        throw new Error(response.data?.error || 'Update failed');
+      }
+  
+      // Update both user state and form data before closing
+      setUser({
+        ...response.data.data,
+        profileComplete: completionPercentage === 100
+      });
       setIsEditMode(false);
+      toast.success('Profile updated successfully!');
+      
     } catch (error) {
-      console.error('Error updating profile:', error);
-      setErrors({ form: 'Failed to update profile. Please try again.' });
+      const errorMessage = getErrorMessage(error);
+      console.error('Update error:', error);
+      setErrors({ form: errorMessage });
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -82,11 +127,35 @@ const StudentProfile = () => {
     setFormData(prev => ({
       ...prev,
       socialLinks: {
-        ...prev.socialLinks,
+        ...(prev.socialLinks || { linkedin: '', website: '' }),
         [platform]: value
       }
     }));
   };
+
+  useEffect(() => {
+    if (user && !isEditMode) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        address: user.address || '',
+        program: user.program || '',
+        year: user.year || '',
+        section: user.section || '',
+        bio: user.bio || '',
+        interests: user.interests ?? [],
+        profileComplete: user.profileComplete || false,
+        gpa: user.gpa || '',
+        achievements: user.achievements || [],
+        courses: user.courses || [],
+        activities: user.activities || [],
+        mentors: user.mentors || [],
+        events: user.events || [],
+        socialLinks: user?.socialLinks || { linkedin: '', website: ''
+      }});
+    }
+  }, [user, isEditMode]);
 
   const handleInterestToggle = (interest: string) => {
     setFormData(prev => ({
@@ -129,6 +198,8 @@ const StudentProfile = () => {
   }, []);
 
   const ProfileForm = () => {
+    const socialLinks = formData.socialLinks || { linkedin: '', website: '' };
+
     return (
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Personal Information Section */}
@@ -200,7 +271,7 @@ const StudentProfile = () => {
               <Select 
                 name="program"
                 value={formData.program}
-                onValueChange={(value) => setFormData({...formData, program: value})}
+                onValueChange={(value) => setFormData(prev => ({...prev, program: value}))}
                 required
               >
                 <SelectTrigger>
@@ -219,7 +290,7 @@ const StudentProfile = () => {
               <Select 
                 name="year"
                 value={formData.year}
-                onValueChange={(value) => setFormData({...formData, year: value})}
+                onValueChange={(value) => setFormData(prev => ({...prev, year: value}))}
                 required
               >
                 <SelectTrigger>
@@ -269,7 +340,7 @@ const StudentProfile = () => {
             {['AI', 'Web Dev', 'Data Science', 'Cybersecurity', 'UX/UI Design', 'Mobile Development', 'Cloud Computing', 'Game Development'].map((interest) => (
               <Badge
                 key={interest}
-                variant={formData.interests.includes(interest) ? 'default' : 'secondary'}
+                variant={(formData.interests || []).includes(interest) ? 'default' : 'secondary'}
                 onClick={() => handleInterestToggle(interest)}
                 className="cursor-pointer"
               >
@@ -282,28 +353,28 @@ const StudentProfile = () => {
         {/* Social Links Section */}
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">Social Links</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="linkedin">LinkedIn</Label>
-              <Input
-                id="linkedin"
-                name="linkedin"
-                value={formData.socialLinks.linkedin}
-                onChange={(e) => handleSocialLinkChange('linkedin', e.target.value)}
-                placeholder="https://linkedin.com/in/yourprofile"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="linkedin">LinkedIn</Label>
+                <Input
+                  id="linkedin"
+                  name="linkedin"
+                  value={socialLinks.linkedin}
+                  onChange={(e) => handleSocialLinkChange('linkedin', e.target.value)}
+                  placeholder="https://linkedin.com/in/yourprofile"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="website">Personal Website</Label>
+                <Input
+                  id="website"
+                  name="website"
+                  value={socialLinks.website}
+                  onChange={(e) => handleSocialLinkChange('website', e.target.value)}
+                  placeholder="https://yourwebsite.com"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="website">Personal Website</Label>
-              <Input
-                id="website"
-                name="website"
-                value={formData.socialLinks.website}
-                onChange={(e) => handleSocialLinkChange('website', e.target.value)}
-                placeholder="https://yourwebsite.com"
-              />
-            </div>
-          </div>
         </Card>
 
         {/* Achievements Section */}
@@ -320,7 +391,7 @@ const StudentProfile = () => {
             </Button>
           </div>
           <div className="space-y-4">
-            {formData.achievements.map((achievement, index) => (
+            {formData.achievements?.map((achievement, index) => (
               <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor={`achievement-title-${index}`}>Title</Label>
@@ -367,7 +438,15 @@ const StudentProfile = () => {
             type="submit" 
             disabled={calculateCompletion() < 100 || isLoading}
           >
-            {isLoading ? 'Saving...' : 'Save Profile'}
+            {isLoading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Saving...
+              </>
+            ) : 'Save Profile'}
           </Button>
         </div>
       </form>
@@ -375,13 +454,27 @@ const StudentProfile = () => {
   };
 
   const renderProfileContent = () => {
-    if (!user?.profileComplete) {
+      if (!user) {
+      return (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      );
+    }
+    if (isEditMode) {
+      return <ProfileForm />;
+    }
+    if (!user.profileComplete) {
       return (
         <div className="text-center py-12">
           <h2 className="text-2xl font-bold mb-4">Complete Your Profile</h2>
           <p className="text-muted-foreground mb-6">
-            Please complete your profile to access all features and connect with mentors.
+            Your profile is {Math.round(calculateCompletion())}% complete. 
+            Please complete your profile to access all features.
           </p>
+          <div className="w-full max-w-md mx-auto mb-6">
+            <Progress value={calculateCompletion()} className="h-2" />
+          </div>
           <Button onClick={() => setIsEditMode(true)}>
             Complete Profile Now
           </Button>
@@ -586,7 +679,7 @@ const StudentProfile = () => {
             
               <TabsContent value="courses" className="mt-0 space-y-4">
                 {user?.courses?.length > 0 ? (
-                  user.courses.map((course, index) => (
+                  user?.courses?.map((course, index) => (
                     <div key={index} className="border-l-2 border-primary/30 pl-4 ml-2 relative">
                       <div className="absolute w-3 h-3 bg-primary rounded-full -left-[7px] top-1"></div>
                       <div className="mb-1">
@@ -709,11 +802,7 @@ const StudentProfile = () => {
       <NavigationBar />
       <main className="flex-grow pt-24 pb-12">
         <div className="container mx-auto px-4 md:px-6">
-          {isEditMode ? (
-            <ProfileForm />
-          ) : (
-            renderProfileContent()
-          )}
+          {renderProfileContent()}
         </div>
       </main>
       <Footer />

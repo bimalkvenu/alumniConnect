@@ -11,7 +11,8 @@ import AIChat from "./pages/AIChat";
 import StudentPortal from "./pages/StudentPortal";
 import StudentProfile from "./pages/StudentProfile";
 import Events from "./pages/Events";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute"; // Add this import
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -43,9 +44,11 @@ const App = () => (
             </ProtectedRoute>
           } />
           <Route path="/student-profile" element={
-            <ProtectedRoute>
-              <StudentProfile />
-            </ProtectedRoute>
+            <ErrorBoundary fallback={<div>Error in ProfileForm</div>}>
+              <ProtectedRoute>
+                <StudentProfile />
+              </ProtectedRoute>
+            </ErrorBoundary>
           } />
           
           {/* Public Routes */}

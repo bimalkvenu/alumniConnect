@@ -4,15 +4,7 @@ import NavigationBar from '@/components/NavigationBar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
-import { 
-  BrainCircuit, 
-  ArrowUp, 
-  User, 
-  RotateCcw, 
-  X, 
-  Sparkles
-} from 'lucide-react';
+import { BrainCircuit, ArrowUp, User, RotateCcw, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -111,7 +103,7 @@ const AIChat = () => {
     }
   };
 
-  const useQuestion = (question: string, index: number) => {
+  const handleQuestionClick = (question: string, index: number) => {
     setInput(question);
     setActiveQuestionIndex(index);
     setHasInteracted(true);
@@ -168,7 +160,7 @@ const AIChat = () => {
                 {suggestedQuestions.map((question, index) => (
                   <button
                     key={index}
-                    onClick={() => useQuestion(question, index)}
+                    onClick={() => handleQuestionClick(question, index)}
                     className="p-4 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors text-left text-base hover:shadow-sm"
                   >
                     {question}

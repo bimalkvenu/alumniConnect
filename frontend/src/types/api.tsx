@@ -1,14 +1,12 @@
+// api.tsx
 export interface User {
   id: string;
   name: string;
   email: string;
-  graduationYear: number;
-  degree: string;
-  lastLogin?: string;
-  program?: string;
-  // Profile fields
+  registrationNumber?: string;
   phone?: string;
   address?: string;
+  program?: string;
   year?: string;
   section?: string;
   bio?: string;
@@ -20,20 +18,25 @@ export interface User {
   activities?: Activity[];
   mentors?: Mentor[];
   events?: Event[];
-  socialLinks?: {
-    linkedin?: string;
-    website?: string;
-  };
+  socialLinks?: SocialLinks;
+  role?: string;
+  lastLogin?: string;
+  completionPercentage?: number;
 }
 
-interface Achievement {
+export interface SocialLinks {
+  linkedin?: string;
+  website?: string;
+}
+
+export interface Achievement {
   title: string;
   description?: string;
   date?: string;
   icon?: string;
 }
 
-interface Course {
+export interface Course {
   code: string;
   name: string;
   professor?: string;
@@ -42,28 +45,28 @@ interface Course {
   progress?: number;
 }
 
-interface Activity {
+export interface Activity {
   name: string;
   role?: string;
   date?: string;
   description?: string;
 }
 
-interface Mentor {
+export interface Mentor {
   name: string;
   position: string;
   since: string;
   nextMeeting: string;
 }
 
-interface Event {
+export interface Event {
   name: string;
   date: string;
 }
-  
-  export interface Notification {
-    _id: string;
-    message: string;
-    read: boolean;
-    createdAt: string;
-  }
+
+export interface Notification {
+  id: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
