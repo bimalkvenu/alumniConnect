@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { MenuIcon, X, GraduationCap, Home, MessageCircle, Calendar } from 'lucide-react';
+import { MenuIcon, X, GraduationCap, Home, MessageCircle, Calendar, User, ChevronDown, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { JoinModal } from '@/components/modals/join-modal';
@@ -19,6 +19,7 @@ interface User {
   year?: string;
   section?: string;
   program?: string;
+  profilePhoto?: string;
 }
 
 const NavigationBar = () => {
@@ -32,6 +33,8 @@ const NavigationBar = () => {
   const [showMentorForm, setShowMentorForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Form states
   const [studentFormData, setStudentFormData] = useState({
@@ -59,6 +62,10 @@ const NavigationBar = () => {
     password: ''
   });
 
+  const toggleProfileDropdown = () => {
+    setIsProfileDropdownOpen(!isProfileDropdownOpen);
+  };
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
@@ -66,6 +73,20 @@ const NavigationBar = () => {
       setUser(parsedUser);
     }
   }, []);  
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.profile-dropdown') && !target.closest('.profile-button')) {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -167,19 +188,36 @@ const NavigationBar = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoggingIn) return;
+  
+    setErrors({});
+    setIsLoggingIn(true);
+  
     try {
       const response = await api.post('/auth/login', loginFormData);
       
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
-      setUser(response.data.user);
-      setLoginFormData({ email: "", password: "" });
-      setIsLoginModalOpen(false);
+      // ✅ Handle nested `data` field
+      const { token, data: userData } = response.data;
+  
+      if (!token || !userData) {
+        throw new Error("Invalid response from server");
+      }
+  
+      // Store token & user data
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(userData));
+      setUser(userData); // Update React state
+  
+      // Redirect based on role
+      navigate(userData.role === "student" ? "/student-portal" : "/mentor-portal");
+  
     } catch (error) {
       console.error("Login error:", error);
       setErrors({
-        form: error.response?.data?.error || "Login failed. Please try again."
+        form: error.response?.data?.message || "Login failed. Please try again."
       });
+    } finally {
+      setIsLoggingIn(false);
     }
   };
   
@@ -285,23 +323,66 @@ const NavigationBar = () => {
 
           {/* Action buttons */}
           {user ? (
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-phthalo font-medium">Hi, {user?.fullName?.split(" ")[0] || 'User'}</span>
-              <Button 
-                variant="outline" 
-                className="button-transition focus-ring text-red-600 border-red-300 hover:text-red-800"
-                onClick={() => {
-                  localStorage.removeItem("token");
-                  localStorage.removeItem("user");
-                  setUser(null);
-                  window.location.reload(); // or use navigate('/')
-                }}
-              >
-                Logout
-              </Button>
+            <div className="flex items-center space-x-4 relative">
+              <div className="flex items-center space-x-2">
+                <button 
+                  className="profile-button flex items-center space-x-2 focus:outline-none"
+                  onClick={toggleProfileDropdown}
+                >
+                  <div className="relative">
+                    {user.profilePhoto ? (
+                      <img 
+                        src={user.profilePhoto} 
+                        alt="Profile" 
+                        className="h-8 w-8 rounded-full object-cover border-2 border-phthalo"
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-phthalo flex items-center justify-center text-white">
+                        <User className="h-4 w-4" />
+                      </div>
+                    )}
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-phthalo transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
+
+              {/* Profile Dropdown */}
+              {isProfileDropdownOpen && (
+                <div className="profile-dropdown absolute right-0 top-12 mt-2 w-56 bg-white rounded-md shadow-lg border border-gray-200 z-50">
+                  <div className="p-4 border-b border-gray-200">
+                    <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
+                    <p className="text-xs text-gray-500">{user.email}</p>
+                  </div>
+                  <div className="py-1">
+                    <Link
+                      to={user.role === 'student' ? '/student-profile' : '/mentor-profile'}
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsProfileDropdownOpen(false)}
+                    >
+                      My Profile
+                    </Link>
+                    <Link
+                      to="/settings"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsProfileDropdownOpen(false)}
+                    >
+                      Settings
+                    </Link>
+                  </div>
+                  <div className="py-1 border-t border-gray-200">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-        ) : (
-          <>
+          ) : (
+            <>
               <Button 
                 variant="outline" 
                 onClick={() => setIsLoginModalOpen(true)}
@@ -313,7 +394,7 @@ const NavigationBar = () => {
                 onClick={() => setIsJoinModalOpen(true)}
                 className="button-transition button-hover focus-ring bg-phthalo hover:bg-phthalo-dark"
               >
-              Join Now
+                Join Now
               </Button>
             </>
           )}
@@ -358,17 +439,46 @@ const NavigationBar = () => {
               <div className="pt-2 flex flex-col space-y-3">
                 {user ? (
                   <>
-                    <span className="text-sm text-phthalo font-medium pl-2">Hi, {user?.fullName?.split(" ")[0] || 'User'}</span>
+                    <div className="flex items-center space-x-3 px-2">
+                      {user.profilePhoto ? (
+                        <img 
+                          src={user.profilePhoto} 
+                          alt="Profile" 
+                          className="h-8 w-8 rounded-full object-cover border-2 border-phthalo"
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-phthalo flex items-center justify-center text-white">
+                          <User className="h-4 w-4" />
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium">{user.fullName}</p>
+                        <p className="text-xs text-gray-500">{user.role === 'student' ? 'Student' : 'Alumni'}</p>
+                      </div>
+                    </div>
+                    <Link
+                      to={user.role === 'student' ? '/student-profile' : '/mentor-profile'}
+                      className="py-2 text-base font-medium transition-colors hover:text-phthalo flex items-center gap-2"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      My Profile
+                    </Link>
+                    <Link
+                      to="/settings"
+                      className="py-2 text-base font-medium transition-colors hover:text-phthalo flex items-center gap-2"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Settings
+                    </Link>
                     <Button 
                       variant="outline"
-                      className="w-full justify-center button-transition focus-ring text-red-600 border-red-300 hover:text-red-800"
+                      className="w-full justify-center button-transition focus-ring text-red-600 border-red-300 hover:text-red-800 flex items-center gap-2"
                       onClick={() => {
-                        localStorage.removeItem("token");
-                        localStorage.removeItem("user");
-                        setUser(null);
-                        window.location.reload();
+                        handleLogout();
+                        setIsMobileMenuOpen(false);
                       }}
                     >
+                      <LogOut className="h-4 w-4" />
                       Logout
                     </Button>
                   </>
@@ -394,7 +504,7 @@ const NavigationBar = () => {
                       Join Now
                     </Button>
                   </>
-                  )}
+                )}
               </div>
             </div>
           </div>
@@ -419,10 +529,15 @@ const NavigationBar = () => {
 
       <LoginModal
         isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
+        onClose={() => {
+          setIsLoginModalOpen(false)
+          setErrors({});
+        }}
         formData={loginFormData}
         onInputChange={handleLoginInputChange}
         onSubmit={handleLoginSubmit}
+        error={errors.form}
+        isLoading={isLoggingIn}
       />
     </>
   );

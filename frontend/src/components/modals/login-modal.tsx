@@ -1,6 +1,6 @@
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, Loader2 } from 'lucide-react';
 import { ReactNode } from 'react';
 
 interface LoginModalProps {
@@ -12,6 +12,8 @@ interface LoginModalProps {
   };
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (e: React.FormEvent) => void;
+  error?: string;
+  isLoading?: boolean;
 }
 
 export const LoginModal = ({ 
@@ -19,7 +21,9 @@ export const LoginModal = ({
   onClose, 
   formData, 
   onInputChange, 
-  onSubmit 
+  onSubmit,
+  error,
+  isLoading
 }: LoginModalProps) => {
   if (!isOpen) return null;
 
@@ -29,10 +33,17 @@ export const LoginModal = ({
       onClose={onClose}
       title="Welcome Back"
       onSubmit={onSubmit}
-      submitText="Log In"
+      submitText="Log In" // You can remove this since we're adding custom button
       size="sm"
     >
       <form className="space-y-4" onSubmit={onSubmit}>
+        {/* Error message display */}
+        {error && (
+          <div className="text-red-500 text-sm mb-4">
+            {error}
+          </div>
+        )}
+
         <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
           <Mail className="h-5 w-5 text-gray-500" />
           <input
@@ -79,6 +90,22 @@ export const LoginModal = ({
             Forgot password?
           </button>
         </div>
+
+        {/* Custom submit button with loading state */}
+        <Button 
+          type="submit" 
+          disabled={isLoading}
+          className="w-full"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Logging in...
+            </>
+          ) : (
+            "Login"
+          )}
+        </Button>
 
         <div className="relative mt-6">
           <div className="absolute inset-0 flex items-center">
