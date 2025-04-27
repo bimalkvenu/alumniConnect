@@ -6,6 +6,7 @@ const authRoutes = require('./routes/authRoutes');
 const alumniRoutes = require('./routes/alumniRoutes');
 const { errorHandler } = require('./middleware/errorMiddleware');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 dotenv.config();
 
@@ -25,6 +26,8 @@ const authLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later' },
 });
 app.use('/api/auth', authLimiter);
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ====== Routes ======
 app.use('/api/auth', authRoutes);

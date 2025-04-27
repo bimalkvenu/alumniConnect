@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
+const multer = require('multer');
+const path = require('path');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -125,32 +127,27 @@ const loginUser = async (req, res) => {
 
     const user = await User.findOne({ email }).select('+password');
 
-    if (!user) {
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({
         success: false,
         error: 'Invalid credentials'
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
 
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-    }
+    // Generate token
+    const token = generateToken(user._id);
+
+    // Return complete user data (excluding sensitive fields)
+    const userData = await User.findById(user._id).select('-password -resetPasswordToken -resetPasswordExpire');
 
     res.status(200).json({
       success: true,
-      token: generateToken(user._id),
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        graduationYear: user.graduationYear,
-        degree: user.degree
-      }
+      token,
+      data: userData
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -160,7 +157,6 @@ const loginUser = async (req, res) => {
     });
   }
 };
-
 
 // @desc    Get current user data
 const getMe = async (req, res) => {
@@ -183,19 +179,35 @@ const getMe = async (req, res) => {
 // @desc    Update user profile
 const updateProfile = async (req, res) => {
   try {
-    const fieldsToUpdate = {
-      name: req.body.name,
-      email: req.body.email,
-      graduationYear: req.body.graduationYear,
-      degree: req.body.degree,
-      currentJob: req.body.currentJob,
-      skills: req.body.skills
-    };
+    // Filter allowed fields
+    const allowedFields = [
+      'name', 'email', 'phone', 'address', 'program', 'year', 
+      'section', 'bio', 'interests', 'gpa', 'achievements', 
+      'courses', 'activities', 'socialLinks', 'profileComplete'
+    ];
+    
+    const fieldsToUpdate = {};
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        fieldsToUpdate[field] = req.body[field];
+      }
+    });
 
-    const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
-      new: true,
-      runValidators: true
-    }).select('-password');
+    const user = await User.findByIdAndUpdate(
+      req.user.id, 
+      fieldsToUpdate, 
+      {
+        new: true,
+        runValidators: true
+      }
+    ).select('-password -resetPasswordToken -resetPasswordExpire');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -203,9 +215,21 @@ const updateProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Update error:', error);
-    res.status(400).json({
+    
+    let errorMessage = 'Update failed';
+    let statusCode = 500;
+    
+    if (error.code === 11000) {
+      statusCode = 400;
+      errorMessage = 'Email already in use';
+    } else if (error.name === 'ValidationError') {
+      statusCode = 400;
+      errorMessage = Object.values(error.errors).map(err => err.message).join(', ');
+    }
+
+    res.status(statusCode).json({
       success: false,
-      error: 'Update failed'
+      error: errorMessage
     });
   }
 };
@@ -324,12 +348,69 @@ const resetPassword = async (req, res) => {
   }
 };
 
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/profile-photos/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, req.user.id + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed!'), false);
+    }
+    cb(null, true);
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
+
+// Add this new controller function
+const uploadProfilePhoto = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No file uploaded' 
+      });
+    }
+
+    const photoUrl = `/uploads/profile-photos/${req.file.filename}`;
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { profilePhoto: photoUrl },
+      { new: true }
+    ).select('-password -resetPasswordToken -resetPasswordExpire');
+
+    res.json({ 
+      success: true, 
+      data: updatedUser,
+      message: 'Profile photo updated successfully'
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to upload profile photo' 
+    });
+  }
+};
+
 module.exports = {
+  uploadProfilePhoto,
   registerUser,
   loginUser,
   getMe,
   updateProfile,
   deleteAccount,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  upload
 };
