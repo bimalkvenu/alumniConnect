@@ -11,19 +11,7 @@ import AlumniConnections from '@/components/alumni/AlumniConnections';
 import AlumniMentorship from '@/components/alumni/AlumniMentorship';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from '@/components/LoadingSpinner';
-
-interface User {
-  _id: string;
-  name: string;
-  email: string;
-  graduationYear: number;
-  degree: string;
-  department?: string;
-  lastLogin?: string;
-  currentJob?: string;
-  company?: string;
-  role?: string;
-}
+import type { AlumniUser } from '@/types/alumni';
 
 interface Notification {
   _id: string;
@@ -41,7 +29,7 @@ interface Message {
 }
 
 const AlumniPortal = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AlumniUser | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +53,7 @@ const AlumniPortal = () => {
     const fetchAllData = async () => {
       try {
         const [userRes, notificationsRes, messagesRes] = await Promise.all([
-          api.get('/auth/me'),
+          api.get('/alumni/me'),
           api.get('/notifications'),
           api.get('/messages')
         ]);
@@ -88,7 +76,7 @@ const AlumniPortal = () => {
     };
 
     fetchAllData();
-  }, []);
+  }, [navigate]);
 
   // Calculate unread counts
   const unreadNotifications = notifications.filter(n => !n.read).length;
@@ -142,7 +130,7 @@ const AlumniPortal = () => {
                   Welcome Back, {user.name}
                 </h1>
                 <p className="text-muted-foreground">
-                  {user.department} '{user.graduationYear}' | Last login: {new Date(user.lastLogin || '').toLocaleString()}
+                  {user.profile.degree} '{user.profile.graduationYear}' | {user.profile.currentRole} at {user.profile.currentCompany || 'your company'}
                 </p>
               </div>
               <div className="flex items-center gap-3">
