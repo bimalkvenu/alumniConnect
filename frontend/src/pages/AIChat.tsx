@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { BrainCircuit, ArrowUp, User, RotateCcw, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 type Message = {
   id: string;
@@ -44,7 +45,7 @@ const AIChat = () => {
     inputRef.current?.focus();
   }, []);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!input.trim()) return;
     
     if (!hasInteracted) {
@@ -64,35 +65,42 @@ const AIChat = () => {
     
     setIsTyping(true);
     
-    setTimeout(() => {
+    try {
+      const botResponse = await getBotResponse(input);
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        content: generateMockResponse(input),
+        content: botResponse,
         role: 'assistant',
         timestamp: new Date()
       };
       
       setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      const errorResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        content: "Sorry, I encountered an error processing your request.",
+        role: 'assistant',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
       setIsTyping(false);
       toast.success("Response generated!", {
         icon: <Sparkles className="h-4 w-4 text-yellow-400" />,
       });
-    }, 1500);
+    }
   };
 
-  const generateMockResponse = (query: string): string => {
-    const lowerQuery = query.toLowerCase();
-    
-    if (lowerQuery.includes('mentor') || lowerQuery.includes('mentorship')) {
-      return "I found several mentors in our network! You can connect with them in the Mentorship section of the Alumni Portal. Would you like me to recommend specific mentors based on your interests?";
-    } else if (lowerQuery.includes('event') || lowerQuery.includes('meeting')) {
-      return "The next alumni networking event is 'Summer Tech Mixer' on June 18th at Grand Hotel, starting at 6 PM. Would you like me to add this to your calendar?";
-    } else if (lowerQuery.includes('scholarship') || lowerQuery.includes('funding')) {
-      return "There are 3 scholarships currently available for alumni: The Innovation Grant, Continuing Education Scholarship, and Global Leadership Fund. Each has different requirements. Would you like details on any specific one?";
-    } else if (lowerQuery.includes('profile') || lowerQuery.includes('update')) {
-      return "You can update your profile information in the Alumni Portal. Go to My Profile and click the Edit Profile button. All changes save automatically. Is there a specific section you'd like to update?";
-    } else {
-      return "That's a great question! I'm here to help with all your alumni network needs. I can assist with finding mentors, getting event information, accessing resources, and making connections with other alumni. Could you tell me more about what specific information you're looking for?";
+  const getBotResponse = async (query: string): Promise<string> => {
+    try {
+      const response = await axios.post('http://localhost:5001/api/chat', 
+        { message: query },
+        { headers: { 'Content-Type' : 'application/json'}}
+      );
+      return response.data.response;
+    } catch (error) {
+      console.error('Error calling chatbot API:', error);
+      return "I'm having trouble connecting to the chatbot service. Please try again later.";
     }
   };
 
