@@ -271,10 +271,6 @@ const AIChat = () => {
                 </div>
                 
                 <div className="flex justify-between items-center mt-3">
-                  <div className="text-sm text-slate-500 flex items-center gap-1">
-                    <Sparkles className="h-4 w-4 text-yellow-500" />
-                    <span>Powered by Azure OpenAI</span>
-                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
