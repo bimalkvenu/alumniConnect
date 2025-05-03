@@ -1,31 +1,35 @@
 const mongoose = require('mongoose');
 
-// Define what an alumni looks like
 const alumniSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Please add a name']
-  },
-  email: {
-    type: String,
-    required: [true, 'Please add an email'],
-    unique: true,
-    match: [
-      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-      'Please add a valid email'
-    ]
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    unique: true
   },
   graduationYear: {
     type: Number,
-    required: true,
+    required: [true, 'Graduation year is required'],
     min: [1900, 'Year must be after 1900'],
     max: [new Date().getFullYear(), 'Year cannot be in the future']
   },
-  degree: String,
-  currentJob: String
-}, {
-  timestamps: true // Adds createdAt and updatedAt fields
-});
+  degree: {
+    type: String,
+    required: [true, 'Degree is required'],
+    trim: true
+  },
+  currentJob: {
+    type: String,
+    trim: true
+  },
+  company: {
+    type: String,
+    trim: true
+  },
+  profileComplete: {
+    type: Boolean,
+    default: false
+  }
+}, { timestamps: true });
 
-// Create the model
 module.exports = mongoose.model('Alumni', alumniSchema);

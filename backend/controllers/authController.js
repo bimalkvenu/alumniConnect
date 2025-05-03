@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Alumni = require('../models/Alumni');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
@@ -16,34 +17,50 @@ const generateToken = (id) => {
 // @desc    Register new user
 const registerUser = async (req, res) => {
   try {
-    const { name, registrationNumber, email, password, year, section, program, role } = req.body;
+    console.log('Incoming request body:', req.body);
+    const { name, email, password, role, 
+            graduationYear, degree, currentJob, company,
+            registrationNumber, year, section, program } = req.body;
 
-    // Trim all string inputs
-    const trimmedData = {
-      name: name?.trim(),
-      registrationNumber: registrationNumber?.trim(),
-      email: email?.trim(),
-      password: password, // Don't trim password
-      year: year?.trim(),
-      section: section?.trim(),
-      program: program?.trim(),
-      role: role?.trim()
-    };
+    // Trim string fields
+    const trimmedName = name?.trim();
+    const trimmedEmail = email?.trim();
+    const trimmedDegree = degree?.trim();
+    const trimmedRegistrationNumber = registrationNumber?.trim();
+    const trimmedYear = year?.trim();
+    const trimmedSection = section?.trim();
+    const trimmedProgram = program?.trim();
 
-    // Validation - check for empty strings after trim
-    if (!trimmedData.name || !trimmedData.registrationNumber || !trimmedData.email || 
-        !trimmedData.password || !trimmedData.year || !trimmedData.section || !trimmedData.program) {
+    // Basic validation
+    if (!trimmedName || !trimmedEmail || !password) {
       return res.status(400).json({ 
         success: false,
-        error: 'All fields are required and cannot be empty' 
+        error: 'Name, email and password are required' 
       });
     }
 
-    // Check for existing user (this is redundant with unique indexes but provides better error messages)
+    // Role-specific validation
+    if (role === 'alumni') {
+      if (!graduationYear || !trimmedDegree) {
+        return res.status(400).json({
+          success: false,
+          error: 'For alumni, graduation year and degree are required'
+        });
+      }
+    } else if (role === 'student') {
+      if (!trimmedRegistrationNumber || !trimmedYear || !trimmedSection || !trimmedProgram) {
+        return res.status(400).json({
+          success: false,
+          error: 'For students, registration number, year, section and program are required'
+        });
+      }
+    }
+
+    // Check for existing user
     const userExists = await User.findOne({ 
       $or: [
-        { email: trimmedData.email },
-        { registrationNumber: trimmedData.registrationNumber }
+        { email: trimmedEmail },
+        ...(role === 'student' ? [{ registrationNumber: trimmedRegistrationNumber }] : [])
       ]
     });
     
@@ -54,17 +71,30 @@ const registerUser = async (req, res) => {
       });
     }
 
-    // Create user with trimmed data
+    // Create user
     const user = await User.create({
-      name: trimmedData.name,
-      registrationNumber: trimmedData.registrationNumber,
-      email: trimmedData.email,
-      password: trimmedData.password,
-      year: trimmedData.year,
-      section: trimmedData.section,
-      program: trimmedData.program,
-      role: trimmedData.role || 'student'
+      name: trimmedName,
+      email: trimmedEmail,
+      password,
+      role,
+      ...(role === 'student' && {
+        registrationNumber: trimmedRegistrationNumber,
+        year: trimmedYear,
+        section: trimmedSection,
+        program: trimmedProgram
+      })
     });
+
+    // If alumni, create alumni profile
+    if (role === 'alumni') {
+      await Alumni.create({
+        user: user._id,
+        graduationYear: Number(graduationYear),
+        degree: trimmedDegree,
+        currentJob: currentJob || '',
+        company: company || ''
+      });
+    }
 
     // Generate token
     const token = generateToken(user._id);
@@ -76,8 +106,8 @@ const registerUser = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        registrationNumber: user.registrationNumber,
-        role: user.role
+        role: user.role,
+        ...(user.registrationNumber && { registrationNumber: user.registrationNumber })
       }
     });
 
@@ -87,7 +117,6 @@ const registerUser = async (req, res) => {
     let errorMessage = 'Registration failed';
     let statusCode = 500;
     
-    // Handle duplicate key errors from MongoDB unique indexes
     if (error.code === 11000) {
       statusCode = 400;
       if (error.keyPattern.email) {
@@ -95,15 +124,9 @@ const registerUser = async (req, res) => {
       } else if (error.keyPattern.registrationNumber) {
         errorMessage = 'Registration number already exists';
       }
-    } 
-    // Handle validation errors
-    else if (error.name === 'ValidationError') {
+    } else if (error.name === 'ValidationError') {
       statusCode = 400;
       errorMessage = Object.values(error.errors).map(err => err.message).join(', ');
-    }
-    // Handle empty field errors from our manual validation
-    else if (error.message.includes('required')) {
-      statusCode = 400;
     }
 
     res.status(statusCode).json({
@@ -112,7 +135,6 @@ const registerUser = async (req, res) => {
     });
   }
 };
-
 // @desc    Authenticate user
 const loginUser = async (req, res) => {
   try {
