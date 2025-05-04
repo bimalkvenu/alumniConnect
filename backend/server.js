@@ -3,7 +3,6 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
-const alumniRoutes = require('./routes/alumni');
 const { errorHandler } = require('./middleware/errorMiddleware');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
@@ -27,11 +26,11 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth', authLimiter);
 
+// Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ====== Routes ======
 app.use('/api/auth', authRoutes);
-app.use('/api/alumni', alumniRoutes);
 
 // ====== Error Handler ======
 app.use(errorHandler);

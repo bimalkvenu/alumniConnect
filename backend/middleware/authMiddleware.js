@@ -30,4 +30,19 @@ const protect = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = { protect };
+// Add this new adminProtect middleware
+const adminProtect = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    res.status(401);
+    throw new Error('Not authorized, no user');
+  }
+
+  if (req.user.role !== 'admin') {
+    res.status(403);
+    throw new Error('Not authorized as admin');
+  }
+
+  next();
+});
+
+module.exports = { protect, adminProtect }; // Add adminProtect to exports
