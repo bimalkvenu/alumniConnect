@@ -13,6 +13,8 @@ import StudentProfile from "./pages/StudentProfile";
 import Events from "./pages/Events";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { AuthHandler } from "@/components/auth/AuthHandler";
+import { NavigationDebugger } from "./components/NavigationDebugger";
 
 const queryClient = new QueryClient();
 
@@ -22,17 +24,19 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <NavigationDebugger />
+        <AuthHandler /> {/* Add this line */}
         <Routes>
           <Route path="/" element={<Index />} />
           
           {/* Protected Alumni Routes */}
           <Route path="/alumni-portal" element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['alumni']}> {/* Add allowedRoles */}
               <AlumniPortal />
             </ProtectedRoute>
           } />
           <Route path="/alumni-profile" element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['alumni']}> {/* Add allowedRoles */}
               <AlumniProfile />
             </ProtectedRoute>
           } />
@@ -45,7 +49,7 @@ const App = () => (
           } />
           <Route path="/student-profile" element={
             <ErrorBoundary fallback={<div>Error in ProfileForm</div>}>
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['student']}> {/* Add allowedRoles */}
                 <StudentProfile />
               </ProtectedRoute>
             </ErrorBoundary>
@@ -55,7 +59,6 @@ const App = () => (
           <Route path="/ai-chat" element={<AIChat />} />
           <Route path="/events" element={<Events />} />
           
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

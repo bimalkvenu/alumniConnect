@@ -14,6 +14,8 @@ export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const navigate = useNavigate();
 
   // Initialize auth state
@@ -36,12 +38,21 @@ export const useAuth = () => {
         console.error('Auth initialization error:', err);
         logout();
       } finally {
-        setLoading(false);
+        setIsInitialized(true);
       }
     };
 
     initializeAuth();
   }, []);
+
+  // Handle pending navigation after auth state updates
+  useEffect(() => {
+    if (pendingNavigation && user) {
+      console.log(`Executing pending navigation to: ${pendingNavigation}`);
+      navigate(pendingNavigation, { replace: true });
+      setPendingNavigation(null);
+    }
+  }, [user, pendingNavigation, navigate]);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
@@ -54,14 +65,18 @@ export const useAuth = () => {
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
         
-        // Return the redirect path based on role
-        return {
+        // Set the pending navigation path based on role
+        const path = {
           student: '/student-portal',
           alumni: '/alumni-portal',
           admin: '/admin-dashboard'
-        }[response.data.user.role] || '/';
+        }[response.data.user.role.toLowerCase()] || '/';
+        
+        console.log(`Login successful, setting pending navigation to: ${path}`);
+        setPendingNavigation(path);
+      } else {
+        throw new Error(response.data.error || 'Login failed');
       }
-      throw new Error(response.data.error || 'Login failed');
     } catch (error) {
       console.error('Login error:', error);
       setError(error instanceof Error ? error.message : 'Login failed');
@@ -92,9 +107,12 @@ export const useAuth = () => {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
-        return '/student-portal';
+        
+        console.log('Registration successful, setting pending navigation to /student-portal');
+        setPendingNavigation('/student-portal');
+      } else {
+        throw new Error(response.data.error || 'Registration failed');
       }
-      throw new Error(response.data.error || 'Registration failed');
     } catch (error) {
       console.error('Registration error:', error);
       setError(error instanceof Error ? error.message : 'Registration failed');
@@ -108,6 +126,7 @@ export const useAuth = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    setPendingNavigation(null);
     navigate('/login');
   };
 
@@ -137,10 +156,12 @@ export const useAuth = () => {
     user, 
     setUser,
     loading, 
+    isInitialized,
     error,
     login,
     register,
     logout,
-    updateUser
+    updateUser,
+    pendingNavigation
   };
 };

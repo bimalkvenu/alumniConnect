@@ -310,6 +310,8 @@ const NavigationBar = () => {
         // 1. Store auth data
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
+
+        await new Promise(resolve => setTimeout(resolve, 50));
         
         // 2. Update state
         setUser(response.data.user);

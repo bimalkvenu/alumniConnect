@@ -1,28 +1,31 @@
-import { Navigate, Outlet } from 'react-router-dom';
+// src/components/auth/ProtectedRoute.tsx
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import LoadingSpinner from '../LoadingSpinner';
 
-interface ProtectedRouteProps {
-  allowedRoles?: string[];
-  children?: React.ReactNode;
-}
+export const ProtectedRoute = ({ allowedRoles, children }) => {
+  const location = useLocation();
+  const { user, loading, isInitialized } = useAuth();
 
-export const ProtectedRoute = ({ allowedRoles, children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
-  
-  if (loading) {
-    return <div className="flex justify-center items-center h-screen">
-      <LoadingSpinner />
-    </div>;
+  console.log('ProtectedRoute check:', {
+    path: location.pathname,
+    user: user?.role,
+    allowedRoles,
+    isLoading: loading
+  });
+
+  if ( !isInitialized || loading) {
+    return <div>Loading...</div>;
   }
 
   if (!user) {
-    return <Navigate to="/" replace />;
+    console.log('Redirecting to home - no user');
+    return <Navigate to="/" replace state={{ from: location }} />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role.toLowerCase())) {
-    return <Navigate to="/" replace />;
+    console.log(`Redirecting - role ${user.role} not in ${allowedRoles}`);
+    return <Navigate to="/" replace state={{ from: location }} />;
   }
 
-  return children ? children : <Outlet />;
+  return children;
 };
