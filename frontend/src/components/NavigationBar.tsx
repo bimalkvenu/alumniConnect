@@ -304,28 +304,39 @@ const NavigationBar = () => {
   
     try {
       const response = await api.post('/auth/login', loginFormData);
-      const { token, data: userData } = response.data;
+      console.log('Login response:', response.data); // Debug log
   
-      if (!token || !userData) {
-        throw new Error("Invalid response from server");
-      }
-      // Store token & user data
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(userData));
-      setUser(userData); // Update React state
-  
-      // Redirect based on role
-      if (userData.role === 'student') {
-        navigate('/student-portal');
-      } else if (userData.role === 'alumni') {
-        navigate('/alumni-portal');
-      } else if (userData.role === 'admin') {
-        navigate('/admin-dashboard');
+      if (response.data.token && response.data.user) {
+        // 1. Store auth data
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        
+        // 2. Update state
+        setUser(response.data.user);
+        
+        // 3. Close modal
+        setIsLoginModalOpen(false);
+        
+        // 4. Force a state update before navigation
+        setTimeout(() => {
+          const path = {
+            student: '/student-portal',
+            alumni: '/alumni-portal',
+            admin: '/admin-dashboard'
+          }[response.data.user.role.toLowerCase()] || '/';
+          
+          console.log('Navigating to:', path);
+          navigate(path, { replace: true });
+        }, 0);
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("Full login error:", error);
+      console.error("Error response:", error.response?.data);
+      
       setErrors({
-        form: error.response?.data?.message || "Login failed. Please try again."
+        form: error.response?.data?.message || 
+             error.message || 
+             "Login failed. Please try again."
       });
     } finally {
       setIsLoggingIn(false);

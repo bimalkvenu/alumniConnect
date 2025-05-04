@@ -3,6 +3,13 @@ import { User } from '../types/api';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
 
+interface AuthResponse {
+  success: boolean;
+  token?: string;
+  user?: User;
+  error?: string;
+}
+
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,16 +47,21 @@ export const useAuth = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.post('/auth/login', { email, password });
+      const response = await api.post<AuthResponse>('/auth/login', { email, password });
       
-      if (response.data?.success) {
+      if (response.data.success && response.data.token && response.data.user) {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
-        navigate('/dashboard');
-      } else {
-        throw new Error(response.data?.error || 'Login failed');
+        
+        // Return the redirect path based on role
+        return {
+          student: '/student-portal',
+          alumni: '/alumni-portal',
+          admin: '/admin-dashboard'
+        }[response.data.user.role] || '/';
       }
+      throw new Error(response.data.error || 'Login failed');
     } catch (error) {
       console.error('Login error:', error);
       setError(error instanceof Error ? error.message : 'Login failed');
@@ -71,16 +83,18 @@ export const useAuth = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.post('/auth/register', userData);
+      const response = await api.post<AuthResponse>('/auth/register', {
+        ...userData,
+        role: 'student' // Explicitly set role
+      });
       
-      if (response.data?.success) {
+      if (response.data.success && response.data.token && response.data.user) {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
-        navigate('/dashboard');
-      } else {
-        throw new Error(response.data?.error || 'Registration failed');
+        return '/student-portal';
       }
+      throw new Error(response.data.error || 'Registration failed');
     } catch (error) {
       console.error('Registration error:', error);
       setError(error instanceof Error ? error.message : 'Registration failed');
