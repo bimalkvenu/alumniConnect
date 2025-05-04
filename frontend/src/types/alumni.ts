@@ -1,19 +1,28 @@
 export interface AlumniProfileData {
-    graduationYear: string;
+  graduationYear: string;
+  degree: string;
+  currentCompany: string;
+  currentRole: string;
+  location: string;
+  phone: string;
+  bio: string;
+  skills: string[];
+  education: Array<{
+    institution: string;
     degree: string;
-    currentCompany?: string;
-    currentRole?: string;
-    location?: string;
-    phone?: string;
-    bio?: string;
-    skills: string[];
-    education: Education[];
-    experience: Experience[];
-    socialLinks: {
-      linkedin?: string;
-      website?: string;
-      twitter?: string;
-    };
+    year: string;
+    description: string;
+  }>;
+  experience: Array<{
+    company: string;
+    role: string;
+    duration: string;
+    description: string;
+  }>;
+  socialLinks: {
+    linkedin?: string;
+    website?: string;
+  };
 }
 
 export interface AlumniUser {

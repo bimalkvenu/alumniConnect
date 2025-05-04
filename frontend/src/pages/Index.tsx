@@ -34,7 +34,6 @@ const Index = () => {
       <NavigationBar />
       <HeroSection />
       <FeaturesSection />
-      <MentorshipSection />
       <AIAssistantSection />
       <CTASection />
       <Footer />

@@ -68,7 +68,6 @@ const AlumniProfile = () => {
     return 'An unknown error occurred';
   }
 
-  // Calculate completion percentage
   const calculateCompletion = () => {
     const requiredFields = ['graduationYear', 'degree', 'currentRole'];
     const completedFields = requiredFields.filter(field => {

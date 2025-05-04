@@ -7,11 +7,11 @@ import { Loader2 } from 'lucide-react';
 interface JoinModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onRoleSelect: (role: 'student' | 'mentor') => void;
+  onRoleSelect: (role: 'student' | 'alumni') => void;
   showStudentForm: boolean;
-  showMentorForm: boolean;
+  showAlumniForm: boolean;
   studentFormData: {
-    fullName: string;
+    name: string;
     registrationNumber: string;
     email: string;
     password: string;
@@ -19,17 +19,17 @@ interface JoinModalProps {
     section: string;
     program: string;
   };
-  mentorFormData: {
-    fullName: string;
+  alumniFormData: {
+    name: string;
     email: string;
     password: string;
     graduationYear: string;
-    program: string;
-    currentPosition: string;
+    degree: string;
+    currentJob: string;
     company: string;
   };
-  onFormInputChange: (formType: 'student' | 'mentor', e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
-  onFormSubmit: (formType: 'student' | 'mentor') => void;
+  onFormInputChange: (formType: 'student' | 'alumni', e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  onFormSubmit: (formType: 'student' | 'alumni') => void;
   onGoogleAuth: () => void;
   errors: Record<string, string>;
   isSubmitting: boolean;
@@ -40,9 +40,9 @@ export const JoinModal = ({
   onClose, 
   onRoleSelect,
   showStudentForm,
-  showMentorForm,
+  showAlumniForm,
   studentFormData,
-  mentorFormData,
+  alumniFormData,
   onFormInputChange,
   onFormSubmit,
   onGoogleAuth,
@@ -81,7 +81,7 @@ export const JoinModal = ({
           </button>
 
           <button
-            onClick={() => onRoleSelect('mentor')}
+            onClick={() => onRoleSelect('alumni')}
             className="group flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors"
           >
             <div className="flex items-center space-x-3">
@@ -124,11 +124,11 @@ export const JoinModal = ({
         <FormInput
           icon={<User className="h-5 w-5 text-gray-500" />}
           type="text"
-          name="fullName"
+          name="name"
           placeholder="Full Name"
-          value={studentFormData.fullName}
+          value={studentFormData.name}
           onChange={(e) => onFormInputChange('student', e)}
-          error={errors.fullName}
+          error={errors.name}
           required
         />
 
@@ -200,7 +200,7 @@ export const JoinModal = ({
 
         {errors.form && (
           <div className="text-red-500 text-sm text-center">
-            {errors.form}
+            {typeof errors.form === 'string' ? errors.form : JSON.stringify(errors.form)}
           </div>
         )}
 
@@ -209,22 +209,23 @@ export const JoinModal = ({
     </Modal>
   );
 
-  const renderMentorForm = () => (
+  const renderAlumniForm = () => (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="Mentor Registration"
-      onSubmit={() => onFormSubmit('mentor')}
+      onSubmit={() => onFormSubmit('alumni')}
       submitText={isSubmitting ? "Creating Account..." : "Create Account"}
     >
       <form className="space-y-4">
         <FormInput
           icon={<User className="h-5 w-5 text-gray-500" />}
           type="text"
-          name="fullName"
+          name="name"
           placeholder="Full Name"
-          value={mentorFormData.fullName}
-          onChange={(e) => onFormInputChange('mentor', e)}
+          value={alumniFormData.name}
+          onChange={(e) => onFormInputChange('alumni', e)}
+          error={errors.name}
           required
         />
 
@@ -233,8 +234,9 @@ export const JoinModal = ({
           type="email"
           name="email"
           placeholder="Email Address"
-          value={mentorFormData.email}
-          onChange={(e) => onFormInputChange('mentor', e)}
+          value={alumniFormData.email}
+          onChange={(e) => onFormInputChange('alumni', e)}
+          error={errors.email}
           required
         />
 
@@ -243,8 +245,8 @@ export const JoinModal = ({
           type="password"
           name="password"
           placeholder="Create Password"
-          value={mentorFormData.password}
-          onChange={(e) => onFormInputChange('mentor', e)}
+          value={alumniFormData.password}
+          onChange={(e) => onFormInputChange('alumni', e)}
           required
         />
 
@@ -252,9 +254,9 @@ export const JoinModal = ({
           <Calendar className="h-5 w-5 text-gray-500" />
           <select
             name="graduationYear"
-            value={mentorFormData.graduationYear}
-            onChange={(e) => onFormInputChange('mentor', e)}
-            className="flex-1 bg-transparent focus:outline-none"
+            value={alumniFormData.graduationYear}
+            onChange={(e) => onFormInputChange('alumni', e)}
+            className={`flex-1 bg-transparent focus:outline-none ${errors.graduationYear ? 'border border-red-300' : ''}`}
             required
           >
             <option value="">Graduation Year</option>
@@ -263,24 +265,26 @@ export const JoinModal = ({
             ))}
           </select>
         </div>
+        {errors.graduationYear && <p className="mt-1 text-sm text-red-500">{errors.graduationYear}</p>}
 
         <FormInput
           icon={<GraduationCap className="h-5 w-5 text-gray-500" />}
           type="text"
-          name="program"
+          name="degree"
           placeholder="Program Studied"
-          value={mentorFormData.program}
-          onChange={(e) => onFormInputChange('mentor', e)}
+          value={alumniFormData.degree}
+          onChange={(e) => onFormInputChange('alumni', e)}
           required
         />
 
         <FormInput
           icon={<BriefcaseBusiness className="h-5 w-5 text-gray-500" />}
           type="text"
-          name="currentPosition"
+          name="currentJob"
           placeholder="Current Position"
-          value={mentorFormData.currentPosition}
-          onChange={(e) => onFormInputChange('mentor', e)}
+          value={alumniFormData.currentJob}
+          onChange={(e) => onFormInputChange('alumni', e)}
+          error={errors.currentJob}
           required
         />
 
@@ -289,9 +293,16 @@ export const JoinModal = ({
           type="text"
           name="company"
           placeholder="Company/Organization"
-          value={mentorFormData.company}
-          onChange={(e) => onFormInputChange('mentor', e)}
+          value={alumniFormData.company}
+          onChange={(e) => onFormInputChange('alumni', e)}
+          error={errors.company}
         />
+
+        {errors.form && (
+          <div className="text-red-500 text-sm text-center">
+            {typeof errors.form === 'string' ? errors.form : JSON.stringify(errors.form)}
+          </div>
+        )}
 
         <SocialAuthSection onGoogleAuth={onGoogleAuth} />
       </form>
@@ -301,7 +312,7 @@ export const JoinModal = ({
   if (!isOpen) return null;
 
   if (showStudentForm) return renderStudentForm();
-  if (showMentorForm) return renderMentorForm();
+  if (showAlumniForm) return renderAlumniForm();
   return renderRoleSelection();
 };
 
