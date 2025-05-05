@@ -297,6 +297,7 @@ const NavigationBar = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Button Clicked");
     if (isLoggingIn) return;
   
     setErrors({});
@@ -304,37 +305,35 @@ const NavigationBar = () => {
   
     try {
       const response = await api.post('/auth/login', loginFormData);
-      console.log('Login response:', response.data); // Debug log
-  
+      
       if (response.data.token && response.data.user) {
-        // 1. Store auth data
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        const userData = {
+          ...response.data.user,
+          role: response.data.user.role?.toLowerCase()
+        };
 
-        await new Promise(resolve => setTimeout(resolve, 50));
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(userData));
         
-        // 2. Update state
-        setUser(response.data.user);
+        // 2. Update state immediately
+        setUser(userData);
         
         // 3. Close modal
         setIsLoginModalOpen(false);
+
+        await new Promise(resolve => setTimeout(resolve, 50));
         
-        // 4. Force a state update before navigation
-        setTimeout(() => {
-          const path = {
-            student: '/student-portal',
-            alumni: '/alumni-portal',
-            admin: '/admin-dashboard'
-          }[response.data.user.role.toLowerCase()] || '/';
-          
-          console.log('Navigating to:', path);
-          navigate(path, { replace: true });
-        }, 0);
+        const pathMap: Record<string, string> = {
+          student: '/student-portal',
+          alumni: '/alumni-portal',
+          admin: '/admin-dashboard'
+        };
+        const path = pathMap[userData.role] || '/';
+        
+        navigate(path, { replace: true });
       }
     } catch (error) {
-      console.error("Full login error:", error);
-      console.error("Error response:", error.response?.data);
-      
+      console.error("Login error:", error);
       setErrors({
         form: error.response?.data?.message || 
              error.message || 

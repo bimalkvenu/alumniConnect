@@ -11,9 +11,8 @@ import AIChat from "./pages/AIChat";
 import StudentPortal from "./pages/StudentPortal";
 import StudentProfile from "./pages/StudentProfile";
 import Events from "./pages/Events";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { AuthHandler } from "@/components/auth/AuthHandler";
 import { NavigationDebugger } from "./components/NavigationDebugger";
 
 const queryClient = new QueryClient();
@@ -25,7 +24,6 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <NavigationDebugger />
-        <AuthHandler /> {/* Add this line */}
         <Routes>
           <Route path="/" element={<Index />} />
           

@@ -1,31 +1,33 @@
-// src/components/auth/ProtectedRoute.tsx
+import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
-export const ProtectedRoute = ({ allowedRoles, children }) => {
+// Define the props type
+interface ProtectedRouteProps {
+  allowedRoles: string[];
+  children: ReactNode;
+}
+
+const ProtectedRoute = ({ allowedRoles, children }: ProtectedRouteProps) => {
+  const { user, loading } = useAuth();
   const location = useLocation();
-  const { user, loading, isInitialized } = useAuth();
 
-  console.log('ProtectedRoute check:', {
-    path: location.pathname,
-    user: user?.role,
-    allowedRoles,
-    isLoading: loading
-  });
-
-  if ( !isInitialized || loading) {
-    return <div>Loading...</div>;
+  if (loading) {
+    return <LoadingSpinner />;
   }
 
   if (!user) {
-    console.log('Redirecting to home - no user');
-    return <Navigate to="/" replace state={{ from: location }} />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role.toLowerCase())) {
-    console.log(`Redirecting - role ${user.role} not in ${allowedRoles}`);
-    return <Navigate to="/" replace state={{ from: location }} />;
+  const userRole = user?.role?.toLowerCase();
+  const isAuthorized = userRole && allowedRoles.includes(userRole);
+
+  if (!isAuthorized) {
+    return <Navigate to="/not-authorized" replace />;
   }
 
   return children;
 };
+export default ProtectedRoute;

@@ -9,15 +9,22 @@ import ConnectedMentors from '@/components/student/ConnectedMentors';
 import MentorSearch from '@/components/student/MentorSearch';
 import MentorChat from '@/components/student/MentorChat';
 import StudentDashboard from '@/components/student/Students-Dashboard';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 
 const StudentPortal = () => {
-  const { user } = useAuth();
-  // Scroll to top on page load
+  const { user,loading, isInitialized } = useAuth();
+  const navigate = useNavigate();
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
+  }, [user, isInitialized, navigate]);
+
+  if (loading || !isInitialized) {
+    return <div className="flex justify-center items-center h-screen">
+      <LoadingSpinner />
+    </div>;
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
