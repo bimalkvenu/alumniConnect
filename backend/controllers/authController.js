@@ -9,6 +9,14 @@ const Student = require('../models/Student');
 const Alumni = require('../models/Alumni');
 const Admin = require('../models/Admin');
 const sendEmail = require('../utils/sendEmail');
+const rateLimit = require('express-rate-limit');
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many login attempts, please try again later',
+  skipSuccessfulRequests: true // Don't count successful logins
+});
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -197,17 +205,41 @@ const loginUser = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    token,
-    user: userData
-  });
+    token, // Add this wrapper
+    user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role.toLowerCase(),
+        ...(user.profilePhoto && { profilePhoto: user.profilePhoto }),
+        // Include role-specific fields if needed
+      }
+    }
+  );
 });
 
 // @desc    Get current user data
 const getMe = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id).select('-password -resetPasswordToken -resetPasswordExpire');
+  
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  // Standardize response format
   res.status(200).json({
     success: true,
-    user
+    data: {  // Add this wrapper
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        ...(user.profilePhoto && { profilePhoto: user.profilePhoto }),
+        // Include other necessary fields
+      }
+    }
   });
 });
 

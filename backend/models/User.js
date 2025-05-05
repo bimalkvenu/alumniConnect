@@ -54,6 +54,13 @@ const userSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
+userSchema.pre('save', function(next) {
+  if (this.isModified('role')) {
+    this.role = this.role.toLowerCase();
+  }
+  next();
+});
+
 // Password hashing middleware
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
