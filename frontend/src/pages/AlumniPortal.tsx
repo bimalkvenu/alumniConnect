@@ -28,8 +28,27 @@ interface Message {
   read: boolean;
 }
 
+interface AlumniData {
+  id: string;
+  name: string;
+  email: string;
+  graduationYear: number;
+  degree: string;
+  currentPosition?: string;
+  company?: string;
+  skills?: string[];
+  experience?: Array<{
+    position: string;
+    company: string;
+    startDate: string;
+    endDate?: string;
+    currentlyWorking: boolean;
+  }>;
+}
+
 const AlumniPortal = () => {
   const [user, setUser] = useState<AlumniUser | null>(null);
+  const [alumniData, setAlumniData] = useState<AlumniData | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,10 +76,19 @@ const AlumniPortal = () => {
           api.get('/notifications'),
           api.get('/messages')
         ]);
-
+    
         setUser(userRes.data);
-        setNotifications(notificationsRes.data);
-        setMessages(messagesRes.data);
+        
+        // Ensure notifications is always an array
+        setNotifications(Array.isArray(notificationsRes.data?.data) 
+          ? notificationsRes.data.data 
+          : []);
+        
+        // Ensure messages is always an array
+        setMessages(Array.isArray(messagesRes.data?.data) 
+          ? messagesRes.data.data 
+          : []);
+          
       } catch (err) {
         console.error('Error fetching data:', err);
         
@@ -69,6 +97,9 @@ const AlumniPortal = () => {
           navigate('/login');
         } else {
           setError(err.response?.data?.message || 'Failed to load portal data');
+          // Set empty arrays if there's an error
+          setNotifications([]);
+          setMessages([]);
         }
       } finally {
         setLoading(false);

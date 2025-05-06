@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AlumniProfileData, AlumniUser } from '@/types/alumni';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 const AlumniProfile = () => {
   const { user: authUser, setUser } = useAuth();
@@ -27,24 +28,49 @@ const AlumniProfile = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState(authUser?.profilePhoto || '');
+  const [previewUrl, setPreviewUrl] = useState('');
 
   // Cast the authUser to AlumniUser type
   const user = authUser as AlumniUser | null;
 
   const [formData, setFormData] = useState<AlumniProfileData>({
-    graduationYear: user?.profile?.graduationYear || '',
-    degree: user?.profile?.degree || '',
-    currentCompany: user?.profile?.currentCompany || '',
-    currentRole: user?.profile?.currentRole || '',
-    location: user?.profile?.location || '',
-    phone: user?.profile?.phone || '',
-    bio: user?.profile?.bio || '',
-    skills: user?.profile?.skills || [],
-    education: user?.profile?.education || [],
-    experience: user?.profile?.experience || [],
-    socialLinks: user?.profile?.socialLinks || {}
+    graduationYear: '',
+    degree: '',
+    currentCompany: '',
+    currentRole: '',
+    location: '',
+    phone: '',
+    bio: '',
+    skills: [],
+    education: [],
+    experience: [],
+    socialLinks: {}
   });
+
+  // Initialize form data when user loads
+  useEffect(() => {
+    if (user) {
+      setPreviewUrl(user.profilePhoto || '');
+      setFormData({
+        graduationYear: user.profile?.graduationYear || '',
+        degree: user.profile?.degree || '',
+        currentCompany: user.profile?.currentCompany || '',
+        currentRole: user.profile?.currentRole || '',
+        location: user.profile?.location || '',
+        phone: user.profile?.phone || '',
+        bio: user.profile?.bio || '',
+        skills: user.profile?.skills || [],
+        education: user.profile?.education || [],
+        experience: user.profile?.experience || [],
+        socialLinks: user.profile?.socialLinks || {}
+      });
+
+      // If profile is incomplete, automatically enter edit mode
+      if (!user.profileComplete) {
+        setIsEditMode(true);
+      }
+    }
+  }, [user]);
 
   // Error message helper function
   const getErrorMessage = (error: unknown): string => {
@@ -68,7 +94,7 @@ const AlumniProfile = () => {
     return 'An unknown error occurred';
   }
 
-  const calculateCompletion = () => {
+  const calculateCompletion = (): number => {
     const requiredFields = ['graduationYear', 'degree', 'currentRole'];
     const completedFields = requiredFields.filter(field => {
       const value = formData[field as keyof typeof formData];
@@ -95,10 +121,12 @@ const AlumniProfile = () => {
         throw new Error(response.data?.error || 'Update failed');
       }
 
+      // Update user context with new data
       setUser({
         ...response.data.data,
         profileComplete: completionPercentage === 100
       });
+      
       setIsEditMode(false);
       toast.success('Profile updated successfully!');
       
@@ -233,35 +261,6 @@ const AlumniProfile = () => {
     setFormData(prev => ({ ...prev, experience: updatedExperience }));
   };
 
-  useEffect(() => {
-    if (user && !isEditMode) {
-      setFormData({
-        graduationYear: user.profile.graduationYear || '',
-        degree: user.profile.degree || '',
-        currentCompany: user.profile.currentCompany || '',
-        currentRole: user.profile.currentRole || '',
-        location: user.profile.location || '',
-        phone: user.profile.phone || '', // Add phone here
-        bio: user.profile.bio || '',
-        skills: user.profile.skills || [],
-        education: user.profile.education || [],
-        experience: user.profile.experience || [],
-        socialLinks: user.profile.socialLinks || {}
-      });
-      setPreviewUrl(user.profilePhoto || '');
-    }
-}, [user, isEditMode]);
-
-  useEffect(() => {
-    if (user && !user.profileComplete) {
-      setIsEditMode(true);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
   const ProfileForm = () => {
     const socialLinks = formData.socialLinks || {};
 
@@ -272,7 +271,7 @@ const AlumniProfile = () => {
           <h3 className="text-lg font-semibold mb-4">Professional Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="currentRole">Current Role</Label>
+              <Label htmlFor="currentRole">Current Role*</Label>
               <Input
                 id="currentRole"
                 name="currentRole"
@@ -299,6 +298,98 @@ const AlumniProfile = () => {
                 onChange={handleChange}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                type="tel"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="graduationYear">Graduation Year*</Label>
+              <Input
+                id="graduationYear"
+                name="graduationYear"
+                value={formData.graduationYear}
+                onChange={handleChange}
+                type="number"
+                min="1900"
+                max={new Date().getFullYear()}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="degree">Degree*</Label>
+              <Input
+                id="degree"
+                name="degree"
+                value={formData.degree}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* About Me Section */}
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">About Me</h3>
+          <div className="space-y-2">
+            <Label htmlFor="bio">Bio</Label>
+            <Textarea
+              id="bio"
+              name="bio"
+              value={formData.bio}
+              onChange={handleChange}
+              rows={4}
+              placeholder="Tell us about your professional journey, expertise, and interests..."
+            />
+          </div>
+        </Card>
+
+        {/* Skills Section */}
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Skills & Expertise</h3>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {['JavaScript', 'React', 'Node.js', 'Python', 'Java', 'Cloud Computing', 
+              'Project Management', 'Data Analysis', 'UI/UX Design', 'Machine Learning'].map((skill) => (
+              <Badge
+                key={skill}
+                variant={formData.skills.includes(skill) ? 'default' : 'secondary'}
+                onClick={() => handleSkillToggle(skill)}
+                className="cursor-pointer"
+              >
+                {skill}
+                {formData.skills.includes(skill) && <Check className="h-3 w-3 ml-1" />}
+              </Badge>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Add custom skill"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                  handleSkillToggle(e.currentTarget.value.trim());
+                  e.currentTarget.value = '';
+                }
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={(e) => {
+                const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                if (input.value.trim()) {
+                  handleSkillToggle(input.value.trim());
+                  input.value = '';
+                }
+              }}
+            >
+              Add
+            </Button>
           </div>
         </Card>
 
@@ -422,65 +513,6 @@ const AlumniProfile = () => {
           </div>
         </Card>
 
-        {/* About Me Section */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">About Me</h3>
-          <div className="space-y-2">
-            <Label htmlFor="bio">Bio</Label>
-            <Textarea
-              id="bio"
-              name="bio"
-              value={formData.bio}
-              onChange={handleChange}
-              rows={4}
-              placeholder="Tell us about your professional journey, expertise, and interests..."
-            />
-          </div>
-        </Card>
-
-        {/* Skills Section */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Skills & Expertise</h3>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {['JavaScript', 'React', 'Node.js', 'Python', 'Java', 'Cloud Computing', 
-              'Project Management', 'Data Analysis', 'UI/UX Design', 'Machine Learning'].map((skill) => (
-              <Badge
-                key={skill}
-                variant={formData.skills.includes(skill) ? 'default' : 'secondary'}
-                onClick={() => handleSkillToggle(skill)}
-                className="cursor-pointer"
-              >
-                {skill}
-                {formData.skills.includes(skill) && <Check className="h-3 w-3 ml-1" />}
-              </Badge>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Add custom skill"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                  handleSkillToggle(e.currentTarget.value.trim());
-                  e.currentTarget.value = '';
-                }
-              }}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={(e) => {
-                const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                if (input.value.trim()) {
-                  handleSkillToggle(input.value.trim());
-                  input.value = '';
-                }
-              }}
-            >
-              Add
-            </Button>
-          </div>
-        </Card>
-
         {/* Social Links Section */}
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">Social Links</h3>
@@ -536,37 +568,7 @@ const AlumniProfile = () => {
     );
   };
 
-  const renderProfileContent = () => {
-    if (!user) {
-      return (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        </div>
-      );
-    }
-
-    if (isEditMode) {
-      return <ProfileForm />;
-    }
-
-    if (!user.profileComplete) {
-      return (
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold mb-4">Complete Your Profile</h2>
-          <p className="text-muted-foreground mb-6">
-            Your profile is {Math.round(calculateCompletion())}% complete. 
-            Please complete your profile to access all features.
-          </p>
-          <div className="w-full max-w-md mx-auto mb-6">
-            <Progress value={calculateCompletion()} className="h-2" />
-          </div>
-          <Button onClick={() => setIsEditMode(true)}>
-            Complete Profile Now
-          </Button>
-        </div>
-      );
-    }
-
+  const renderProfileView = () => {
     return (
       <>
         <div className="mb-8 relative">
@@ -823,6 +825,40 @@ const AlumniProfile = () => {
         </div>
       </>
     );
+  };
+
+  const renderProfileContent = () => {
+    if (!user) {
+      return (
+        <div className="flex justify-center items-center h-64">
+          <LoadingSpinner />
+        </div>
+      );
+    }
+
+    if (isEditMode) {
+      return <ProfileForm />;
+    }
+
+    if (!user.profileComplete) {
+      return (
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-bold mb-4">Complete Your Profile</h2>
+          <p className="text-muted-foreground mb-6">
+            Your profile is {Math.round(calculateCompletion())}% complete. 
+            Please complete your profile to access all features.
+          </p>
+          <div className="w-full max-w-md mx-auto mb-6">
+            <Progress value={calculateCompletion()} className="h-2" />
+          </div>
+          <Button onClick={() => setIsEditMode(true)}>
+            Complete Profile Now
+          </Button>
+        </div>
+      );
+    }
+
+    return renderProfileView();
   };
 
   return (
