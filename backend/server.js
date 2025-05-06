@@ -3,9 +3,12 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
+const alumniRoutes = require('./routes/alumniRoutes');
 const { errorHandler } = require('./middleware/errorMiddleware');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const notificationsRoutes = require('./routes/notificationsRoutes');
+const messagesRoutes = require('./routes/messagesRoutes');
 
 dotenv.config();
 
@@ -25,6 +28,10 @@ const authLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later' },
 });
 app.use('/api/auth', authLimiter);
+app.use('/api/alumni', alumniRoutes);
+
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/messages', messagesRoutes);
 
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
