@@ -20,7 +20,8 @@ import 'react-toastify/dist/ReactToastify.css';
 
 
 const StudentProfile = () => {
-  const { user, setUser } = useAuth();
+  const { user: authUser } = useAuth();
+  const [user, setUser] = useState(authUser);
   const navigate = useNavigate();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

@@ -21,7 +21,8 @@ import { AlumniProfileData, AlumniUser } from '@/types/alumni';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 const AlumniProfile = () => {
-  const { user: authUser, setUser } = useAuth();
+  const { user: authUser } = useAuth(); // Remove setUser from here
+  const [user, setUser] = useState(authUser as AlumniUser | null);
   const navigate = useNavigate();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +32,6 @@ const AlumniProfile = () => {
   const [previewUrl, setPreviewUrl] = useState('');
 
   // Cast the authUser to AlumniUser type
-  const user = authUser as AlumniUser | null;
 
   const [formData, setFormData] = useState<AlumniProfileData>({
     graduationYear: '',
@@ -111,19 +111,33 @@ const AlumniProfile = () => {
     try {
       const completionPercentage = calculateCompletion();
       const updatedData = {
-        ...formData,
+        graduationYear: formData.graduationYear,
+        degree: formData.degree,
+        currentRole: formData.currentRole,
+        currentCompany: formData.currentCompany,
+        location: formData.location,
+        phone: formData.phone,
+        bio: formData.bio,
+        skills: formData.skills,
+        education: formData.education,
+        experience: formData.experience,
+        socialLinks: formData.socialLinks,
         profileComplete: completionPercentage === 100
       };
 
-      const response = await api.put('/alumni/me', { profile: updatedData });
+      const response = await api.put('/alumni/me', updatedData);
       
-      if (!response.data?.success || !response.data.data) {
+      if (!response.data?.success) {
         throw new Error(response.data?.error || 'Update failed');
       }
 
       // Update user context with new data
       setUser({
-        ...response.data.data,
+        ...user,
+        profile: {
+          ...user?.profile,
+          ...updatedData
+        },
         profileComplete: completionPercentage === 100
       });
       
@@ -179,14 +193,17 @@ const AlumniProfile = () => {
       const formData = new FormData();
       formData.append('profilePhoto', selectedFile);
 
-      const response = await api.put('/alumni/upload-profile-photo', formData, {
+      const response = await api.put('/alumni/me/photo', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
 
       if (response.data?.success) {
-        setUser(response.data.user);
+        setUser({
+          ...user,
+          profilePhoto: response.data.data.user.profilePhoto
+        });
         toast.success('Profile photo updated successfully!');
         setSelectedFile(null);
       }
