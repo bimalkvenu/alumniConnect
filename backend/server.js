@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const alumniRoutes = require('./routes/alumniRoutes');
+const studentRoutes = require('./routes/studentRoutes');
 const { errorHandler } = require('./middleware/errorMiddleware');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
@@ -27,9 +28,10 @@ const authLimiter = rateLimit({
   max: 10, // limit each IP to 10 requests per windowMs
   message: { error: 'Too many requests, please try again later' },
 });
-app.use('/api/auth', authLimiter);
-app.use('/api/alumni', alumniRoutes);
 
+app.use('/api/auth', authRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/alumni', alumniRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/messages', messagesRoutes);
 

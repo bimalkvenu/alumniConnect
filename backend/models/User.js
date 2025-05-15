@@ -3,69 +3,35 @@ const bcrypt = require('bcryptjs');
 const validator = require('validator');
 
 const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Please provide your name'],
-    trim: true,
-    maxlength: [50, 'Name cannot exceed 50 characters']
-  },
   email: {
     type: String,
-    required: [true, 'Please provide your email'],
+    required: [true, 'Email is required'],
     unique: true,
     lowercase: true,
-    trim: true,
-    validate: [validator.isEmail, 'Please provide a valid email']
+    validate: [validator.isEmail, 'Invalid email format']
   },
   password: {
     type: String,
-    required: [true, 'Please provide a password'],
+    required: [true, 'Password is required'],
     minlength: [8, 'Password must be at least 8 characters'],
     select: false
   },
   role: {
     type: String,
     enum: ['student', 'alumni', 'admin'],
-    required: true,
-    immutable: true
+    required: true
   },
-  profilePhoto: {
-    type: String,
-    trim: true,
-    default: ''
-  },
-  // Common fields
-  phone: String,
-  address: String,
-  bio: String,
-  socialLinks: {
-    linkedin: String,
-    website: String
-  },
-  lastLogin: Date,
-  isActive: {
+  isVerified: {
     type: Boolean,
-    default: true
-  }
-}, {
-  timestamps: true,
-  discriminatorKey: 'role',
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
-
-userSchema.pre('save', function(next) {
-  if (this.isModified('role')) {
-    this.role = this.role.toLowerCase();
-  }
-  next();
-});
+    default: false
+  },
+  lastLogin: Date
+}, { timestamps: true });
 
 // Password hashing middleware
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
-  const salt = await bcrypt.genSalt(12);
-  this.password = await bcrypt.hash(this.password, salt);
+  this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
@@ -74,5 +40,4 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-const User = mongoose.model('User', userSchema);
-module.exports = User;
+module.exports = mongoose.model('User', userSchema);

@@ -5,8 +5,8 @@ const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
 const User = require('../models/User');
-const Student = require('../models/Student');
-const Alumni = require('../models/Alumni');
+const StudentProfile = require('../models/StudentProfile');
+const AlumniProfile = require('../models/AlumniProfile');
 const Admin = require('../models/Admin');
 const sendEmail = require('../utils/sendEmail');
 const rateLimit = require('express-rate-limit');
@@ -50,89 +50,102 @@ const upload = multer({
 });
 
 // @desc    Register new user
+// @desc    Register new user
 const registerUser = asyncHandler(async (req, res) => {
+  try {
+    const { name, email, password, role, profileData } = req.body;
 
-  console.log('Received registration request:', {
-    body: req.body,
-    params: req.params,
-    query: req.query
-  });
+    // Validation
+    const requiredFields = ['name', 'email', 'password', 'role'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
 
-  try {  const { name, email, password, role, ...roleData } = req.body;
-
-  // Validation
-const requiredFields = ['name', 'email', 'password', 'role'];
-const missingFields = requiredFields.filter(field => !req.body[field]);
-
-if (missingFields.length > 0) {
-  console.log('Missing required fields:', missingFields);
-  return res.status(400).json({
-    success: false,
-    message: `Missing required fields: ${missingFields.join(', ')}`,
-    fields: missingFields
-  });
-}
-
-  if (await User.findOne({ email })) {
-    res.status(400);
-    throw new Error('Email already exists');
-  }
-
-  let user;
-  const baseData = { name, email, password };
-  
-  switch (role) {
-    case 'student':
-      if (!roleData.registrationNumber) {
-        res.status(400);
-        throw new Error('Registration number is required for students');
-      }
-      
-      if (await Student.findOne({ registrationNumber: roleData.registrationNumber })) {
-        res.status(400);
-        throw new Error('Registration number already exists');
-      }
-      
-      user = await Student.create({ ...baseData, ...roleData });
-      break;
-
-    case 'alumni':
-      if (!roleData.graduationYear || !roleData.degree) {
-        res.status(400);
-        throw new Error('Graduation year and degree are required for alumni');
-      }
-      const { registrationNumber, ...alumniData } = roleData;
-      user = await Alumni.create({ ...baseData, ...alumniData });
-      break;
-
-    default:
-      res.status(400);
-      throw new Error('Invalid role specified');
-  }
-
-  res.status(201).json({
-    success: true,
-    token: generateToken(user._id),
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(', ')}`
+      });
     }
-  });
-  } catch (error) {
-    console.error('Registration Error:', {
-      message: error.message,
-      code: error.code,
-      keyPattern: error.keyPattern
-    });
 
-    // Standardized error response
-    res.status(400).json({
+    if (await User.findOne({ email })) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already exists'
+      });
+    }
+
+    // Create base user
+    const user = await User.create({ email, password, role });
+
+    try {
+      // Create role-specific profile
+      if (role === 'student') {
+        if (!profileData.registrationNumber || !profileData?.year || !profileData?.program) {
+          await User.findByIdAndDelete(user._id);
+          return res.status(400).json({
+            message: 'Registration number, year, and program are required for students'
+          });
+        }
+
+        await StudentProfile.create({
+          user: user._id,
+          name: name,
+          email: email,
+          registrationNumber: profileData.registrationNumber,
+          year: profileData.year,
+          section: profileData.section || '',
+          program: profileData.program,
+          
+        });
+      } 
+      else if (role === 'alumni') {
+        if (!profileData.graduationYear || !profileData.degree) {
+          await User.findByIdAndDelete(user._id);
+          return res.status(400).json({
+            success: false,
+            message: 'Graduation year and degree are required for alumni'
+          });
+        }
+
+        await AlumniProfile.create({
+          user: user._id,
+          name,
+          email,
+          graduationYear: profileData.graduationYear,
+          degree: profileData.degree,
+          currentPosition: profileData.currentJob || '',
+          company: profileData.company || '',
+          profileComplete: false
+        });
+      }
+
+      const token = generateToken(user._id);
+
+      res.status(201).json({
+        success: true,
+        token,
+        user: {
+          id: user._id,
+          email: user.email,
+          role: user.role,
+          isVerified: user.isVerified,
+          profile: { 
+            registrationNumber: profileData.registrationNumber,
+            year: profileData.year,
+            program: profileData.program,
+            section: profileData.section
+          }
+        }
+      });
+    } catch (error) {
+      // Rollback user creation if profile creation fails
+      await User.findByIdAndDelete(user._id);
+      throw error;
+    }
+  } catch (error) {
+    console.error('Registration Error:', error);
+    res.status(500).json({
       success: false,
-      message: error.message,
-      fields: error.keyPattern ? Object.keys(error.keyPattern) : [],
-      errors: error.errors || undefined
+      message: 'Registration failed'
     });
   }
 });
@@ -220,27 +233,42 @@ const loginUser = asyncHandler(async (req, res) => {
 
 // @desc    Get current user data
 const getMe = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id).select('-password -resetPasswordToken -resetPasswordExpire');
-  
-  if (!user) {
-    res.status(404);
-    throw new Error('User not found');
-  }
+  try {
+    const user = await User.findById(req.user.id)
+      .select('-password -__v -resetPasswordToken -resetPasswordExpire')
+      .lean();
 
-  // Standardize response format
-  res.status(200).json({
-    success: true,
-    data: {  // Add this wrapper
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        ...(user.profilePhoto && { profilePhoto: user.profilePhoto }),
-        // Include other necessary fields
-      }
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
     }
-  });
+
+    let profile = {};
+    if (user.role === 'student') {
+      profile = await StudentProfile.findOne({ user: user._id })
+        .select('-__v -createdAt -updatedAt')
+        .lean();
+    } 
+    
+
+    const responseData = {
+      ...user,
+      ...(profile || {})
+    };
+
+    res.json({
+      success: true,
+      data: responseData
+    });
+  } catch (error) {
+    console.error('Get me error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
 });
 
 // @desc    Update user profile
