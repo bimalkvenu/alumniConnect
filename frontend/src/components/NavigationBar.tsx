@@ -8,26 +8,26 @@ import { JoinModal } from '@/components/modals/join-modal';
 import { LoginModal } from '@/components/modals/login-modal';
 import axios from 'axios';
 import api from '@/api';
-import { ApiError } from '@/types/apiTypes';
 import { Loader2 } from 'lucide-react';
-import StudentPortal from '@/pages/StudentPortal';
 
 interface User {
   id: string;
-  name: string;
   email: string;
   role: 'student' | 'alumni' | 'admin';
-  //Student
-  registrationNumber?: string;
-  year?: string;
-  section?: string;
-  program?: string;
-  //Alumni
-  graduationYear?: number;
-  degree?: string;
-  currentJob?: string;
-  company?: string;
-  profilePhoto?: string;
+  profile?: {
+    name: string;
+    profilePhoto?: string;
+    // Student fields
+    registrationNumber?: string;
+    year?: string;
+    section?: string;
+    program?: string;
+    // Alumni fields
+    graduationYear?: number;
+    degree?: string;
+    currentPosition?: string;
+    company?: string;
+  };
 }
 
 const NavigationBar = () => {
@@ -70,18 +70,42 @@ const NavigationBar = () => {
     password: ''
   });
 
-  const toggleProfileDropdown = () => {
-    setIsProfileDropdownOpen(!isProfileDropdownOpen);
-  };
-
+  // Load user from localStorage on initial render
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const parsedUser: User = JSON.parse(storedUser);
-      setUser(parsedUser);
-    }
-  }, []);  
+    const loadUser = async () => {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsedUser: User = JSON.parse(storedUser);
+        
+        // Fetch fresh profile data if needed
+        if (parsedUser.role && !parsedUser.profile) {
+          try {
+            const endpoint = parsedUser.role === 'student' 
+              ? '/students/me' 
+              : '/alumni/me';
+            
+            const profileResponse = await api.get(endpoint);
+            const updatedUser = {
+              ...parsedUser,
+              profile: profileResponse.data
+            };
+            
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setUser(updatedUser);
+          } catch (error) {
+            console.error("Failed to fetch profile:", error);
+            setUser(parsedUser);
+          }
+        } else {
+          setUser(parsedUser);
+        }
+      }
+    };
+    
+    loadUser();
+  }, []);
 
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -91,33 +115,30 @@ const NavigationBar = () => {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Scroll handler
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleRoleSelect = (role: 'student' | 'alumni') => {
-    setErrors({});
-    if (role === 'student') {
-      setShowStudentForm(true);
-      setShowAlumniForm(false);
-    } else {
-      setShowStudentForm(false);
-      setShowAlumniForm(true);
-    }
+  const toggleProfileDropdown = () => {
+    setIsProfileDropdownOpen(!isProfileDropdownOpen);
   };
 
+  const handleRoleSelect = (role: 'student' | 'alumni') => {
+    setErrors({});
+    setShowStudentForm(role === 'student');
+    setShowAlumniForm(role === 'alumni');
+  };
+
+  // Form validation
   const validateStudentForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!studentFormData.name.trim()) newErrors.fullName = 'Full name is required';
+    if (!studentFormData.name.trim()) newErrors.name = 'Name is required';
     if (!studentFormData.registrationNumber.trim()) newErrors.registrationNumber = 'Registration number is required';
     if (!studentFormData.email.trim()) newErrors.email = 'Email is required';
     if (!/^\S+@\S+\.\S+$/.test(studentFormData.email)) newErrors.email = 'Invalid email format';
@@ -132,7 +153,7 @@ const NavigationBar = () => {
 
   const validateAlumniForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!alumniFormData.name.trim()) newErrors.fullName = 'Full name is required';
+    if (!alumniFormData.name.trim()) newErrors.name = 'Name is required';
     if (!alumniFormData.email.trim()) newErrors.email = 'Email is required';
     if (!/^\S+@\S+\.\S+$/.test(alumniFormData.email)) newErrors.email = 'Invalid email format';
     if (!alumniFormData.password || alumniFormData.password.length < 6) {
@@ -143,81 +164,82 @@ const NavigationBar = () => {
     return newErrors;
   };
 
-  const handleStudentInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setStudentFormData(prev => ({ ...prev, [name]: value }));
-  };
+  // Student registration
+const handleStudentSubmit = async () => {
+  const formErrors = validateStudentForm();
+  if (Object.keys(formErrors).length > 0) {
+    setErrors(formErrors);
+    return;
+  }
 
-  const handleStudentSubmit = async () => {
-    const formErrors = validateStudentForm();
-    if (Object.keys(formErrors).length > 0) {
-      setErrors(formErrors);
-      return;
-    }
+  setIsSubmitting(true);
 
-    setIsSubmitting(true);
-
+  try {
     const payload = {
       name: studentFormData.name.trim(),
       email: studentFormData.email.trim(),
       password: studentFormData.password,
       role: 'student',
-      registrationNumber: studentFormData.registrationNumber.trim(),
-      year: studentFormData.year,
-      section: studentFormData.section,
-      program: studentFormData.program
+      profileData: {
+        registrationNumber: studentFormData.registrationNumber.trim(),
+        year: studentFormData.year,
+        section: studentFormData.section,
+        program: studentFormData.program
+      }
     };
 
-    try {
-      const response = await api.post('/auth/register',payload);
-      
-      if (response.data.token && response.data.user) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        setUser(response.data.user);
-        setIsJoinModalOpen(false);
-        navigate('/student-portal',{replace: true}); // Redirect to student portal
-      }
-    
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        const backendError = error.response?.data;
-        
-        // Handle backend validation errors
-        const errorMessages: Record<string, string> = {};
-        if (backendError?.errors) {
-          Object.entries(backendError.errors).forEach(([field, message]) => {
-            if (typeof message === 'string') {
-              errorMessages[field] = message;
-            }
-          });
-        }
-        
-        setErrors({
-          ...errorMessages,
-          form: backendError?.message || 'Registration failed'
-        });
-      } else if (error instanceof Error) {
-        setErrors({
-          form: error.message
-        });
-      } else {
-        setErrors({
-          form: 'An unknown error occurred'
-        });
-      }
-    } finally {
-      setIsSubmitting(false);
+    // Make registration request
+    const response = await api.post('/auth/register', payload);
+
+    localStorage.setItem('token', response.data.token);
+
+    // After successful registration, immediately fetch the profile
+    const profileResponse = await api.get('/students/me', {
+      headers: { Authorization: `Bearer ${response.data.token}` }
+    });
+
+    // Combine user and profile data
+    const userData = {
+      ...response.data.user,
+      profile: profileResponse.data
+    };
+
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
+    setIsJoinModalOpen(false);
+
+    navigate('/student-portal');
+
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('Registration error details:', error.response.data);
+      setErrors({
+        form: error.response.data.message || 'Registration failed',
+        ...(error.response.data.errors || {})
+      });
+    } else {
+      setErrors({ form: 'Registration failed. Please try again.' });
     }
-  };
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
-  //alumni submit
+  // Alumni registration
+const handleAlumniSubmit = async () => {
+  const formErrors = validateAlumniForm();
+  if (Object.keys(formErrors).length > 0) {
+    setErrors(formErrors);
+    return;
+  }
 
-  const handleAlumniSubmit = async () => {
+  setIsSubmitting(true);
 
+  try {
+    // Prepare the payload in the correct format
     const payload = {
-      name: alumniFormData.name,
-      email: alumniFormData.email,
+      name: alumniFormData.name.trim(),
+      email: alumniFormData.email.trim(),
       password: alumniFormData.password,
       role: 'alumni',
       graduationYear: Number(alumniFormData.graduationYear),
@@ -225,138 +247,163 @@ const NavigationBar = () => {
       currentJob: alumniFormData.currentJob || '',
       company: alumniFormData.company || ''
     };
-  
-    console.log('Sending payload:', payload); // Add this line
 
-    const formErrors = validateAlumniForm();
-    if (Object.keys(formErrors).length > 0) {
-      setErrors(formErrors);
-      return;
-    }
-  
-    setIsSubmitting(true);
-    try {
-      const response = await api.post('/auth/register', payload);
-      if (response.data.success) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        setUser(response.data.user);
-        setIsJoinModalOpen(false);
-        navigate('/alumni-portal');
-      }
-    } catch (error: unknown) {
-      console.error('Registration error:', error);
-      
-      let errorMessage = 'Registration failed. Please try again.';
-      const fieldErrors: Record<string, string> = {};
-      
-      // Type guard to check if it's an AxiosError
-      if (axios.isAxiosError(error)) {
-        // Handle axios-specific errors
-        errorMessage = error.response?.data?.error || error.message;
-        
-        // Handle backend validation errors
-        if (error.response?.status === 400) {
-          if (error.response.data?.error) {
-            // Map backend errors to form fields
-            if (error.response.data.error.includes('email')) {
-              fieldErrors.email = error.response.data.error;
-            }
-            if (error.response.data.error.includes('graduation year')) {
-              fieldErrors.graduationYear = error.response.data.error;
-            }
-            if (error.response.data.error.includes('degree')) {
-              fieldErrors.degree = error.response.data.error;
-            }
-          }
-          
-          // Handle field-specific errors from backend
-          if (error.response.data?.errors) {
-            Object.entries(error.response.data.errors).forEach(([field, message]) => {
-              if (typeof message === 'string') {
-                fieldErrors[field] = message;
-              }
-            });
-          }
-        }
-      } else if (error instanceof Error) {
-        // Handle generic errors
-        errorMessage = error.message;
-      }
+    // First create the user
+    const userResponse = await api.post('/auth/register', {
+      email: payload.email,
+      password: payload.password,
+      role: payload.role
+    });
+
+    // Then create the alumni profile
+    const profileResponse = await api.post('/api/alumni', {
+      user: userResponse.data.user.id,
+      name: payload.name,
+      graduationYear: payload.graduationYear,
+      degree: payload.degree,
+      currentPosition: payload.currentJob,
+      company: payload.company
+    });
+
+    // Combine the data for frontend use
+    const userData = {
+      ...userResponse.data.user,
+      profile: profileResponse.data
+    };
+
+    // Store and update state
+    localStorage.setItem('token', userResponse.data.token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
+    setIsJoinModalOpen(false);
+    navigate('/alumni-portal', { replace: true });
+
+  } catch (error: unknown) {
+    console.error('Registration error:', error);
     
-      setErrors(fieldErrors.form ? fieldErrors : { ...fieldErrors, form: errorMessage });
+    let errorMessage = 'Registration failed. Please try again.';
+    const fieldErrors: Record<string, string> = {};
+    
+    if (axios.isAxiosError(error)) {
+      errorMessage = error.response?.data?.message || error.message;
+      
+      if (error.response?.status === 400 && error.response.data?.errors) {
+        Object.entries(error.response.data.errors).forEach(([field, message]) => {
+          if (typeof message === 'string') {
+            fieldErrors[field] = message;
+          }
+        });
+      }
+    }
+    
+    setErrors({
+      ...fieldErrors,
+      form: errorMessage
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+  // Handle registration errors
+  const handleRegistrationError = (error: unknown) => {
+    let errorMessage = 'Registration failed. Please try again.';
+    const fieldErrors: Record<string, string> = {};
+
+    if (axios.isAxiosError(error)) {
+      errorMessage = error.response?.data?.message || error.message;
+      
+      if (error.response?.status === 400 && error.response.data?.errors) {
+        Object.entries(error.response.data.errors).forEach(([field, message]) => {
+          if (typeof message === 'string') {
+            fieldErrors[field] = message;
+          }
+        });
+      }
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+
+    setErrors(fieldErrors.form ? fieldErrors : { ...fieldErrors, form: errorMessage });
+  };
+
+  // Login handler
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isLoggingIn) return;
+
+    setErrors({});
+    setIsLoggingIn(true);
+
+    try {
+      // 1. Authenticate user
+      const response = await api.post('/auth/login', loginFormData);
+      
+      // 2. Fetch profile data based on role
+      let profileData = {};
+      if (response.data.user.role === 'student') {
+        const profileResponse = await api.get('/api/students/me', {
+          headers: { Authorization: `Bearer ${response.data.token}` }
+        });
+        profileData = profileResponse.data;
+      } else if (response.data.user.role === 'alumni') {
+        const profileResponse = await api.get('/api/alumni/me', {
+          headers: { Authorization: `Bearer ${response.data.token}` }
+        });
+        profileData = profileResponse.data;
+      }
+
+      // 3. Combine user and profile data
+      const userData = {
+        ...response.data.user,
+        profile: profileData
+      };
+
+      // 4. Store and update state
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      setIsLoginModalOpen(false);
+
+      // 5. Redirect based on role
+      const redirectPath = {
+        student: '/student-portal',
+        alumni: '/alumni-portal',
+        admin: '/admin-dashboard'
+      }[userData.role] || '/';
+
+      navigate(redirectPath, { replace: true });
+
+    } catch (error) {
+      console.error("Login error:", error);
+      setErrors({
+        form: axios.isAxiosError(error) 
+          ? error.response?.data?.message || "Login failed"
+          : "Login failed. Please try again."
+      });
     } finally {
-      setIsSubmitting(false);
+      setIsLoggingIn(false);
+    }
+  };
+
+  // Form input handlers
+  const handleFormInputChange = (formType: 'student' | 'alumni', e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    if (formType === 'student') {
+      setStudentFormData(prev => ({ ...prev, [name]: value }));
+      if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    } else {
+      setAlumniFormData(prev => ({ ...prev, [name]: value }));
+      if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
   const handleLoginInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setLoginFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Button Clicked");
-    if (isLoggingIn) return;
-  
-    setErrors({});
-    setIsLoggingIn(true);
-  
-    try {
-      const response = await api.post('/auth/login', loginFormData);
-      
-      if (response.data.token && response.data.user) {
-        const userData = {
-          ...response.data.user,
-          role: response.data.user.role?.toLowerCase()
-        };
-
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(userData));
-        
-        // 2. Update state immediately
-        setUser(userData);
-        
-        // 3. Close modal
-        setIsLoginModalOpen(false);
-
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        const pathMap: Record<string, string> = {
-          student: '/student-portal',
-          alumni: '/alumni-portal',
-          admin: '/admin-dashboard'
-        };
-        const path = pathMap[userData.role] || '/';
-        
-        navigate(path, { replace: true });
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-      setErrors({
-        form: error.response?.data?.message || 
-             error.message || 
-             "Login failed. Please try again."
-      });
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-  
-  const handleFormInputChange = (formType: 'student' | 'alumni', e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    if (formType === 'student') {
-      setStudentFormData(prev => ({ ...prev, [name]: value }));
-      // Clear error for this field if it exists
-      if (errors[name]) {
-        setErrors(prev => ({ ...prev, [name]: '' }));
-      }
-    } else {
-      setAlumniFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
-  
   const handleFormSubmit = (formType: 'student' | 'alumni') => {
     if (formType === 'student') {
       handleStudentSubmit();
@@ -374,9 +421,10 @@ const NavigationBar = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-    navigate('/'); // Redirect to home
+    navigate('/');
   };
 
+  // Reset forms when closing modal
   const resetForms = () => {
     setStudentFormData({
       name: '',
@@ -420,26 +468,14 @@ const NavigationBar = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link 
-              to="/" 
-              className="text-sm font-medium transition-colors hover:text-phthalo flex items-center gap-1"
-            >
-              <Home className="h-4 w-4" />
-              Home
+            <Link to="/" className="text-sm font-medium transition-colors hover:text-phthalo flex items-center gap-1">
+              <Home className="h-4 w-4" /> Home
             </Link>
-            <Link 
-              to="/ai-chat" 
-              className="text-sm font-medium transition-colors hover:text-phthalo flex items-center gap-1"
-            >
-              <MessageCircle className="h-4 w-4" />
-              AI Assistant
+            <Link to="/ai-chat" className="text-sm font-medium transition-colors hover:text-phthalo flex items-center gap-1">
+              <MessageCircle className="h-4 w-4" /> AI Assistant
             </Link>
-            <Link 
-              to="/events" 
-              className="text-sm font-medium transition-colors hover:text-phthalo flex items-center gap-1"
-            >
-              <Calendar className="h-4 w-4" />
-              Events
+            <Link to="/events" className="text-sm font-medium transition-colors hover:text-phthalo flex items-center gap-1">
+              <Calendar className="h-4 w-4" /> Events
             </Link>
           </nav>
 
@@ -452,9 +488,9 @@ const NavigationBar = () => {
                   onClick={toggleProfileDropdown}
                 >
                   <div className="relative">
-                    {user.profilePhoto ? (
+                    {user.profile?.profilePhoto ? (
                       <img 
-                        src={user.profilePhoto} 
+                        src={user.profile.profilePhoto} 
                         alt="Profile" 
                         className="h-8 w-8 rounded-full object-cover border-2 border-phthalo"
                       />
@@ -472,8 +508,9 @@ const NavigationBar = () => {
               {isProfileDropdownOpen && (
                 <div className="profile-dropdown absolute right-0 top-12 mt-2 w-56 bg-white rounded-md shadow-lg border border-gray-200 z-50">
                   <div className="p-4 border-b border-gray-200">
-                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                    <p className="text-sm font-medium text-gray-900">{user.profile?.name || 'User'}</p>
                     <p className="text-xs text-gray-500">{user.email}</p>
+                    <p className="text-xs text-gray-500 capitalize">{user.role}</p>
                   </div>
                   <div className="py-1">
                     <Link
@@ -539,32 +576,29 @@ const NavigationBar = () => {
                 className="py-2 text-base font-medium transition-colors hover:text-phthalo flex items-center gap-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                <Home className="h-4 w-4" />
-                Home
+                <Home className="h-4 w-4" /> Home
               </Link>
               <Link 
                 to="/ai-chat" 
                 className="py-2 text-base font-medium transition-colors hover:text-phthalo flex items-center gap-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                <MessageCircle className="h-4 w-4" />
-                AI Assistant
+                <MessageCircle className="h-4 w-4" /> AI Assistant
               </Link>
               <Link 
                 to="/events" 
                 className="py-2 text-base font-medium transition-colors hover:text-phthalo flex items-center gap-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                <Calendar className="h-4 w-4" />
-                Events
+                <Calendar className="h-4 w-4" /> Events
               </Link>
               <div className="pt-2 flex flex-col space-y-3">
                 {user ? (
                   <>
                     <div className="flex items-center space-x-3 px-2">
-                      {user.profilePhoto ? (
+                      {user.profile?.profilePhoto ? (
                         <img 
-                          src={user.profilePhoto} 
+                          src={user.profile.profilePhoto} 
                           alt="Profile" 
                           className="h-8 w-8 rounded-full object-cover border-2 border-phthalo"
                         />
@@ -574,8 +608,8 @@ const NavigationBar = () => {
                         </div>
                       )}
                       <div>
-                        <p className="text-sm font-medium">{user.name}</p>
-                        <p className="text-xs text-gray-500">{user.role === 'student' ? 'Student' : 'Alumni'}</p>
+                        <p className="text-sm font-medium">{user.profile?.name || 'User'}</p>
+                        <p className="text-xs text-gray-500 capitalize">{user.role}</p>
                       </div>
                     </div>
                     <Link
@@ -600,8 +634,7 @@ const NavigationBar = () => {
                         setIsMobileMenuOpen(false);
                       }}
                     >
-                      <LogOut className="h-4 w-4" />
-                      Logout
+                      <LogOut className="h-4 w-4" /> Logout
                     </Button>
                   </>
                 ) : (
@@ -652,7 +685,7 @@ const NavigationBar = () => {
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => {
-          setIsLoginModalOpen(false)
+          setIsLoginModalOpen(false);
           setErrors({});
         }}
         formData={loginFormData}

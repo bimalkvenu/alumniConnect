@@ -3,7 +3,7 @@ import NavigationBar from '@/components/NavigationBar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GraduationCap, Users, MessageCircle, Calendar, Bell, Briefcase, BookOpen, User, Search } from 'lucide-react';
+import { GraduationCap, Users, MessageCircle, Bell, User, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import ConnectedMentors from '@/components/student/ConnectedMentors';
 import MentorSearch from '@/components/student/MentorSearch';
@@ -12,19 +12,43 @@ import StudentDashboard from '@/components/student/Students-Dashboard';
 import { Link, useNavigate } from 'react-router-dom';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
+interface StudentProfile {
+  name?: string;
+  profilePhoto?: string;
+  registrationNumber?: string;
+  year?: string;
+  section?: string;
+  program?: string;
+}
+
+interface User {
+  id: string;
+  email: string;
+  role: 'student' | 'alumni' | 'admin';
+  profile?: StudentProfile;
+}
 
 const StudentPortal = () => {
-  const { user,loading, isInitialized } = useAuth();
+  const { user, loading, isInitialized } = useAuth();
   const navigate = useNavigate();
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [user, isInitialized, navigate]);
 
-  if (loading || !isInitialized) {
-    return <div className="flex justify-center items-center h-screen">
-      <LoadingSpinner />
-    </div>;
+  if (loading || !isInitialized || !user) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <LoadingSpinner />
+      </div>
+    );
   }
+
+  // Safely extract student data with fallbacks
+  const firstName = user.profile?.name?.split(' ')[0] || 'Student';
+  const program = user.profile?.program || 'Program not specified';
+  const year = user.profile?.year || 'Year not specified';
+  const section = user.profile?.section ? `Section ${user.profile.section}` : '';
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -32,13 +56,15 @@ const StudentPortal = () => {
       
       <main className="flex-grow pt-24 pb-12">
         <div className="container mx-auto px-4 md:px-6">
-          {/* Welcome Header - Matching Alumni Portal */}
+          {/* Welcome Header */}
           <div className="mb-8 p-6 glass-card rounded-xl">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome Back, {user?.name.split(' ')[0]}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold mb-2">
+                  Welcome Back, {firstName}
+                </h1>
                 <p className="text-muted-foreground">
-                  {user?.program} | Year {user?.year}
+                  {program} | Year {year} {section && `| ${section}`}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -65,22 +91,34 @@ const StudentPortal = () => {
             </div>
           </div>
           
-          {/* Main Tabs Navigation - Matching Alumni Portal Style */}
+          {/* Main Tabs Navigation */}
           <Tabs defaultValue="dashboard" className="w-full">
             <TabsList className="w-full mb-8 grid grid-cols-2 md:grid-cols-4 h-auto bg-muted/50 p-1 rounded-lg">
-            <TabsTrigger value="dashboard" className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
+              <TabsTrigger 
+                value="dashboard" 
+                className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2"
+              >
                 <GraduationCap className="h-4 w-4" />
                 <span>Dashboard</span>
               </TabsTrigger>
-              <TabsTrigger value="mentors" className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
+              <TabsTrigger 
+                value="mentors" 
+                className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2"
+              >
                 <Users className="h-4 w-4" />
                 <span>My Mentors</span>
               </TabsTrigger>
-              <TabsTrigger value="search" className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
+              <TabsTrigger 
+                value="search" 
+                className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2"
+              >
                 <Search className="h-4 w-4" />
                 <span>Find Mentors</span>
               </TabsTrigger>
-              <TabsTrigger value="chat" className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
+              <TabsTrigger 
+                value="chat" 
+                className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2"
+              >
                 <MessageCircle className="h-4 w-4" />
                 <span>Chat</span>
               </TabsTrigger>

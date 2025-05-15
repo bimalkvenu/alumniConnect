@@ -14,6 +14,7 @@ import Events from "./pages/Events";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { NavigationDebugger } from "./components/NavigationDebugger";
+import { AuthInitializer } from "./components/AuthInitializer";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+      <AuthInitializer>
         <NavigationDebugger />
         <Routes>
           <Route path="/" element={<Index />} />
@@ -59,6 +61,7 @@ const App = () => (
           
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </AuthInitializer>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

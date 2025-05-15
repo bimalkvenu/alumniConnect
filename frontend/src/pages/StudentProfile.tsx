@@ -4,20 +4,16 @@ import Footer from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/api';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { BookOpen, GraduationCap, Award, Edit, Calendar, MapPin, Mail, Phone, Globe, LinkedinIcon, Users as UsersIcon, Clock, Bookmark } from 'lucide-react';
+import { BookOpen, GraduationCap, Award, Edit, MapPin, Mail, Phone, Globe, LinkedinIcon, Users as UsersIcon } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const StudentProfile = () => {
   const { user: authUser } = useAuth();
@@ -43,36 +39,32 @@ const StudentProfile = () => {
     profileComplete: user?.profileComplete || false,
     gpa: user?.gpa || '',
     achievements: user?.achievements || [],
-    courses: user?.courses || [],
-    activities: user?.activities || [],
-    mentors: user?.mentors || [],
-    events: user?.events || [],
-    socialLinks: user?.socialLinks || { linkedin: '', website: '' 
-  }});
+    socialLinks: user?.socialLinks || { linkedin: '', website: '' }
+  });
 
   // Error message helper function
-const getErrorMessage = (error: unknown): string => {
-  if (typeof error === 'string') return error;
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error !== null) {
-    const apiError = error as {
-      response?: {
-        data?: {
-          error?: string;
-          message?: string;
+  const getErrorMessage = (error: unknown): string => {
+    if (typeof error === 'string') return error;
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'object' && error !== null) {
+      const apiError = error as {
+        response?: {
+          data?: {
+            error?: string;
+            message?: string;
+          };
         };
+        message?: string;
       };
-      message?: string;
-    };
-    return apiError.response?.data?.error || 
-           apiError.response?.data?.message || 
-           apiError.message || 
-           'An unknown error occurred';
+      return apiError.response?.data?.error || 
+             apiError.response?.data?.message || 
+             apiError.message || 
+             'An unknown error occurred';
+    }
+    return 'An unknown error occurred';
   }
-  return 'An unknown error occurred';
-}
 
-  //Calculate Completion Percentage
+  // Calculate Completion Percentage
   const calculateCompletion = () => {
     const requiredFields = ['name', 'program', 'year', 'email'];
     const completedFields = requiredFields.filter(field => {
@@ -82,37 +74,51 @@ const getErrorMessage = (error: unknown): string => {
     return (completedFields.length / requiredFields.length) * 100;
   };
 
-
   // Handle Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
     try {
-      const completionPercentage = calculateCompletion();
       const updatedData = {
         ...formData,
         profileComplete: calculateCompletion() === 100
       };
-  
-      const response = await api.put('/auth/me', updatedData);
       
-      if (!response.data?.success || !response.data.data) {
+      // Update the profile
+      const response = await api.put('/students/me', updatedData);
+      
+      if (!response.data?.success) {
         throw new Error(response.data?.error || 'Update failed');
       }
-  
-      // Update both user state and form data before closing
-      setUser({
-        ...response.data.data,
-        profileComplete: completionPercentage === 100
-      });
+
+      // Get fresh user data after update
+      const userResponse = await api.get('/auth/me');
+      const profileResponse = await api.get('/students/me');
+
+      // Merge the data properly
+      const updatedUser = {
+        ...userResponse.data.data?.user,
+        ...userResponse.data.data?.profile,
+        ...profileResponse.data.data,
+        profileComplete: calculateCompletion() === 100,
+        socialLinks: profileResponse.data.data?.socialLinks || 
+                   userResponse.data.data?.profile?.socialLinks || 
+                   { linkedin: '', website: '' }
+      };
+
+      // Update all states
+      setUser(updatedUser);
+      setFormData(updatedUser);
+      setPreviewUrl(updatedUser.profilePhoto || '');
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
       setIsEditMode(false);
       toast.success('Profile updated successfully!');
       
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       console.error('Update error:', error);
-      setErrors({ form: errorMessage });
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -166,7 +172,25 @@ const getErrorMessage = (error: unknown): string => {
       });
 
       if (response.data?.success) {
-        setUser(response.data.user);
+        // Get fresh data after upload
+        const userResponse = await api.get('/auth/me');
+        const profileResponse = await api.get('/students/me');
+
+        const updatedUser = {
+          ...userResponse.data.data?.user,
+          ...userResponse.data.data?.profile,
+          ...profileResponse.data.data,
+          profileComplete: calculateCompletion() === 100,
+          socialLinks: profileResponse.data.data?.socialLinks || 
+                     userResponse.data.data?.profile?.socialLinks || 
+                     { linkedin: '', website: '' }
+        };
+
+        setUser(updatedUser);
+        setFormData(updatedUser);
+        setPreviewUrl(updatedUser.profilePhoto || '');
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
         toast.success('Profile photo updated successfully!');
       }
     } catch (error) {
@@ -176,7 +200,6 @@ const getErrorMessage = (error: unknown): string => {
       setUploadingPhoto(false);
     }
   };
-
 
   useEffect(() => {
     if (user && !isEditMode) {
@@ -193,14 +216,46 @@ const getErrorMessage = (error: unknown): string => {
         profileComplete: user.profileComplete || false,
         gpa: user.gpa || '',
         achievements: user.achievements || [],
-        courses: user.courses || [],
-        activities: user.activities || [],
-        mentors: user.mentors || [],
-        events: user.events || [],
-        socialLinks: user?.socialLinks || { linkedin: '', website: ''
-      }});
+        socialLinks: user.socialLinks || { linkedin: '', website: '' }
+      });
+      setPreviewUrl(user.profilePhoto || '');
     }
   }, [user, isEditMode]);
+
+  // Add this useEffect to fetch student data when component mounts
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      try {
+        const [userResponse, profileResponse] = await Promise.all([
+          api.get('/auth/me'),
+          api.get('/students/me')
+        ]);
+        
+        // Merge the data properly
+        const updatedUser = {
+          ...userResponse.data.data?.user,
+          ...userResponse.data.data?.profile,
+          ...profileResponse.data.data,
+          socialLinks: profileResponse.data.data?.socialLinks || 
+                     userResponse.data.data?.profile?.socialLinks || 
+                     { linkedin: '', website: '' }
+        };
+
+        setUser(updatedUser);
+        setFormData(updatedUser);
+        setPreviewUrl(updatedUser.profilePhoto || '');
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
+      } catch (error) {
+        console.error('Failed to fetch student data:', error);
+        toast.error('Failed to load profile data');
+      }
+    };
+
+    if (authUser?.role === 'student') {
+      fetchStudentData();
+    }
+  }, [authUser]);
 
   const handleInterestToggle = (interest: string) => {
     setFormData(prev => ({
@@ -481,7 +536,6 @@ const getErrorMessage = (error: unknown): string => {
           </Button>
           <Button 
             type="submit" 
-            disabled={calculateCompletion() < 100 || isLoading}
           >
             {isLoading ? (
               <>
@@ -499,34 +553,16 @@ const getErrorMessage = (error: unknown): string => {
   };
 
   const renderProfileContent = () => {
-      if (!user) {
+    if (!user) {
       return (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
       );
     }
-    if (isEditMode) {
+    if (isEditMode || !user.profileComplete) {
       return <ProfileForm />;
     }
-    if (!user.profileComplete) {
-      return (
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold mb-4">Complete Your Profile</h2>
-          <p className="text-muted-foreground mb-6">
-            Your profile is {Math.round(calculateCompletion())}% complete. 
-            Please complete your profile to access all features.
-          </p>
-          <div className="w-full max-w-md mx-auto mb-6">
-            <Progress value={calculateCompletion()} className="h-2" />
-          </div>
-          <Button onClick={() => setIsEditMode(true)}>
-            Complete Profile Now
-          </Button>
-        </div>
-      );
-    }
-
     return (
       <>
         <div className="mb-8 relative">
@@ -579,7 +615,6 @@ const getErrorMessage = (error: unknown): string => {
                 </div>
               )}
             </div>
-            {/* ... rest of profile header */}
           </div>      
           <div className="flex justify-end gap-3 mt-4">
             <Button 
@@ -716,133 +751,42 @@ const getErrorMessage = (error: unknown): string => {
                 <p className="text-muted-foreground whitespace-pre-line">{user.bio}</p>
               </Card>
             )}
-          
-            <Tabs defaultValue="courses" className="w-full">
-              <TabsList className="w-full mb-6 grid grid-cols-2 h-auto bg-muted/50 p-1 rounded-lg">
-                <TabsTrigger value="courses" className="py-2 data-[state=active]:bg-white flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  <span>Current Courses</span>
-                </TabsTrigger>
-                <TabsTrigger value="activities" className="py-2 data-[state=active]:bg-white flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>Activities</span>
-                </TabsTrigger>
-              </TabsList>
             
-              <TabsContent value="courses" className="mt-0 space-y-4">
-                {user?.courses?.length > 0 ? (
-                  user?.courses?.map((course, index) => (
-                    <div key={index} className="border-l-2 border-primary/30 pl-4 ml-2 relative">
-                      <div className="absolute w-3 h-3 bg-primary rounded-full -left-[7px] top-1"></div>
-                      <div className="mb-1">
-                        <h4 className="text-base font-semibold">{course.code} - {course.name}</h4>
-                        <p className="text-muted-foreground">Prof. {course.professor}</p>
-                        {course.schedule && <p className="text-sm text-muted-foreground">{course.schedule}</p>}
-                      </div>
-                      {course.grade && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="outline">{course.grade}</Badge>
-                          {course.progress && <Progress value={course.progress} className="h-2 w-32" />}
-                        </div>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <p>No courses added yet.</p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={() => setIsEditMode(true)}
-                    >
-                      Add Courses
-                    </Button>
-                  </div>
-                )}
-              </TabsContent>
-            
-              <TabsContent value="activities" className="mt-0 space-y-4">
-                {user?.activities?.length > 0 ? (
-                  user.activities.map((activity, index) => (
-                    <div key={index} className="border-l-2 border-primary/30 pl-4 ml-2 relative">
-                      <div className="absolute w-3 h-3 bg-primary rounded-full -left-[7px] top-1"></div>
-                      <div className="mb-1">
-                        <h4 className="text-base font-semibold">{activity.name}</h4>
-                        {activity.role && <p className="text-muted-foreground">{activity.role}</p>}
-                        {activity.date && <p className="text-sm text-muted-foreground">{activity.date}</p>}
-                      </div>
-                      {activity.description && (
-                        <p className="text-sm mt-2 whitespace-pre-line">{activity.description}</p>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <p>No activities added yet.</p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={() => setIsEditMode(true)}
-                    >
-                      Add Activities
-                    </Button>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-            
-            {user?.mentors?.length > 0 && (
-              <Card className="p-6 glass-card">
-                <h3 className="text-lg font-semibold mb-4">Mentorship Program</h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-medium">Current Mentors</h4>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Position</TableHead>
-                          <TableHead>Since</TableHead>
-                          <TableHead className="text-right">Next Meeting</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {user.mentors.map((mentor, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">{mentor.name}</TableCell>
-                            <TableCell>{mentor.position}</TableCell>
-                            <TableCell>{mentor.since}</TableCell>
-                            <TableCell className="text-right">{mentor.nextMeeting}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  
-                  {user?.events?.length > 0 && (
-                    <div className="pt-4">
-                      <h4 className="font-medium mb-2">Upcoming Events</h4>
-                      <div className="space-y-3">
-                        {user.events.map((event, index) => (
-                          <div key={index} className="flex items-center gap-3 pb-3 border-b">
-                            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <Clock className="h-5 w-5 text-purple-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{event.name}</p>
-                              <p className="text-sm text-muted-foreground">{event.date}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            <Card className="p-6 glass-card">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-primary" />
+                Academic Information
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Program</p>
+                  <p className="font-medium">{user?.program || 'Not specified'}</p>
                 </div>
-              </Card>
-            )}
+                <div>
+                  <p className="text-sm text-muted-foreground">Year</p>
+                  <p className="font-medium">
+                    {user?.year === '1' ? 'First Year' : 
+                     user?.year === '2' ? 'Second Year' : 
+                     user?.year === '3' ? 'Third Year' : 
+                     user?.year === '4' ? 'Fourth Year' : 
+                     user?.year === '5+' ? 'Fifth Year or Above' : 
+                     'Not specified'}
+                  </p>
+                </div>
+                {user?.section && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Section</p>
+                    <p className="font-medium">{user.section}</p>
+                  </div>
+                )}
+                {user?.gpa && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">GPA</p>
+                    <p className="font-medium">{user.gpa}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
           </div>
         </div>
       </>
