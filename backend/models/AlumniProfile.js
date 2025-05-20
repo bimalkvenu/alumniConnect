@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// AlumniProfile.js
 const alumniSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -10,6 +11,11 @@ const alumniSchema = new mongoose.Schema({
   name: {
     type: String,
     required: [true, 'Name is required']
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true
   },
   graduationYear: {
     type: Number,
@@ -22,16 +28,34 @@ const alumniSchema = new mongoose.Schema({
     required: true
   },
   currentPosition: String,
-  company: String,
+  currentCompany: String,
+  location: String,
+  phone: String,
+  bio: String,
   skills: [String],
-  availableForMentorship: {
+  education: [{
+    institution: String,
+    degree: String,
+    year: String,
+    description: String
+  }],
+  experience: [{
+    company: String,
+    role: String,
+    duration: String,
+    description: String
+  }],
+  socialLinks: {
+    linkedin: String,
+    website: String
+  },
+  profileComplete: {
     type: Boolean,
     default: false
   },
-  profilePhoto: {
-    type: String,
-    default: ''
+  profilePhoto: String,
+  availableForMentorship: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
-
-module.exports = mongoose.model('AlumniProfile', alumniSchema);

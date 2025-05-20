@@ -112,7 +112,7 @@ const registerUser = asyncHandler(async (req, res) => {
           email,
           graduationYear: profileData.graduationYear,
           degree: profileData.degree,
-          currentPosition: profileData.currentJob || '',
+          currentPosition: profileData.currentPosition || '',
           company: profileData.company || '',
           profileComplete: false
         });

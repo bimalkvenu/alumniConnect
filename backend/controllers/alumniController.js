@@ -9,31 +9,30 @@ const ErrorResponse = require('../utils/errorResponse');
 exports.getAlumniProfile = asyncHandler(async (req, res, next) => {
   try {
     const alumni = await Alumni.findOne({ user: req.user.id })
-      .populate('user', 'name email profilePhoto role');
+      .populate('user', 'email role profilePhoto');
     
     if (!alumni) {
-      // Create a basic alumni profile if none exists
-      const newAlumni = await Alumni.create({
-        user: req.user.id,
-        profileComplete: false
-      });
-      
-      const populatedAlumni = await Alumni.findById(newAlumni._id)
-        .populate('user', 'name email profilePhoto role');
-      
-      return res.status(200).json({
-        success: true,
-        data: populatedAlumni
+      return res.status(404).json({
+        success: false,
+        message: 'Alumni profile not found'
       });
     }
 
+    // Combine user and alumni data
+    const responseData = {
+      ...alumni.toObject(),
+      id: alumni.user._id,
+      email: alumni.user.email,
+      role: alumni.user.role,
+      profilePhoto: alumni.user.profilePhoto
+    };
+
     res.status(200).json({
       success: true,
-      data: alumni
+      data: responseData
     });
   } catch (error) {
-    console.error('Error in getAlumniProfile:', error);
-    next(new ErrorResponse('Server error while fetching alumni profile', 500));
+    next(new ErrorResponse('Server error', 500));
   }
 });
 
