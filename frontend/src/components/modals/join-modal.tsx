@@ -25,7 +25,7 @@ interface JoinModalProps {
     password: string;
     graduationYear: string;
     degree: string;
-    currentJob: string;
+    currentPosition: string;
     company: string;
   };
   onFormInputChange: (formType: 'student' | 'alumni', e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
@@ -280,11 +280,11 @@ export const JoinModal = ({
         <FormInput
           icon={<BriefcaseBusiness className="h-5 w-5 text-gray-500" />}
           type="text"
-          name="currentJob"
+          name="currentPosition"
           placeholder="Current Position"
-          value={alumniFormData.currentJob}
+          value={alumniFormData.currentPosition}
           onChange={(e) => onFormInputChange('alumni', e)}
-          error={errors.currentJob}
+          error={errors.currentPosition}
           required
         />
 

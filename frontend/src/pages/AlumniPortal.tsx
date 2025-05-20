@@ -71,13 +71,13 @@ const AlumniPortal = () => {
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const [userRes, notificationsRes, messagesRes] = await Promise.all([
+        const [profileRes, notificationsRes, messagesRes] = await Promise.all([
           api.get('/alumni/me'),
           api.get('/notifications'),
           api.get('/messages')
         ]);
     
-        setUser(userRes.data);
+        setUser(profileRes.data);
         
         // Ensure notifications is always an array
         setNotifications(Array.isArray(notificationsRes.data?.data) 

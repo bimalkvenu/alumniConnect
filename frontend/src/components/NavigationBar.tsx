@@ -242,41 +242,30 @@ const handleAlumniSubmit = async () => {
       email: alumniFormData.email.trim(),
       password: alumniFormData.password,
       role: 'alumni',
-      graduationYear: Number(alumniFormData.graduationYear),
-      degree: alumniFormData.degree,
-      currentJob: alumniFormData.currentJob || '',
-      company: alumniFormData.company || ''
+      profileData: {
+        graduationYear: Number(alumniFormData.graduationYear),
+        degree: alumniFormData.degree,
+        currentPosition: alumniFormData.currentJob,
+        company: alumniFormData.company
+      }
     };
 
     // First create the user
-    const userResponse = await api.post('/auth/register', {
-      email: payload.email,
-      password: payload.password,
-      role: payload.role
-    });
+    const response = await api.post('/auth/register', payload);
 
-    // Then create the alumni profile
-    const profileResponse = await api.post('/api/alumni', {
-      user: userResponse.data.user.id,
-      name: payload.name,
-      graduationYear: payload.graduationYear,
-      degree: payload.degree,
-      currentPosition: payload.currentJob,
-      company: payload.company
-    });
+    localStorage.setItem('token', response.data.token);
 
-    // Combine the data for frontend use
+    // Fetch the alumni profile after registration
+    const profileResponse = await api.get('/api/alumni/me');
     const userData = {
-      ...userResponse.data.user,
+      ...response.data.user,
       profile: profileResponse.data
     };
 
-    // Store and update state
-    localStorage.setItem('token', userResponse.data.token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     setIsJoinModalOpen(false);
-    navigate('/alumni-portal', { replace: true });
+    navigate('/alumni-portal');
 
   } catch (error: unknown) {
     console.error('Registration error:', error);
