@@ -73,7 +73,6 @@ AlumniConnect is a web application designed to help alumni stay connected with t
 
 ## Screenshots
 
-*(Add screenshots of your app here, e.g., login page, dashboard, events section.)*
 
 ## Live Demo
 
